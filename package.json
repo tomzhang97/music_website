@@ -1,0 +1,15 @@
+{
+  "name": "interval-01",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A self-contained interval ear training studio with procedural Web Audio instruments.",
+  "scripts": {
+    "build": "python3 scripts/build.py",
+    "test": "node --test tests/theory.test.cjs",
+    "test:audio": "node tests/audio.cjs",
+    "test:browser": "node tests/browser.cjs",
+    "serve": "python3 -m http.server 4173 --bind 127.0.0.1"
+  },
+  "devDependencies": { "playwright": "1.62.1" },
+  "engines": { "node": ">=20" }
+}
