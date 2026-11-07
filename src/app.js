@@ -19,6 +19,7 @@
  }catch(_){} }
  function updateAudioStatus(synth){
   if(S.synth!==synth)return;
+  if(S.background?.url){const playing=!$('background-audio').paused;$('audio-led').classList.toggle('on',playing);$('audio-status').textContent=playing?'BACKGROUND AUDIO PLAYING':'LOCK-SCREEN TRACK READY';return;}
   const running=synth.ctx.state==='running';$('audio-led').classList.toggle('on',running);
   $('audio-status').textContent=running?'AUDIO ENGINE CONNECTED':synth.ctx.state==='interrupted'?'AUDIO INTERRUPTED · TAP ENABLE SOUND':'TAP ENABLE SOUND';
   $('enable-audio').textContent=running?'Test sound':'Enable sound';
@@ -29,7 +30,7 @@
   }
   if(!S.synth){
    const synth=new StudioSynth();S.synth=synth;synth.volume(Number($('volume').value)/100);let wasRunning=false;
-   synth.ctx.onstatechange=()=>{if(S.synth!==synth)return;const running=synth.ctx.state==='running';if(wasRunning&&!running){stop();toast('Audio was interrupted. Tap Enable sound to resume.');}wasRunning=running;updateAudioStatus(synth);};
+   synth.ctx.onstatechange=()=>{if(S.synth!==synth)return;const running=synth.ctx.state==='running';if(wasRunning&&!running&&!S.background){stop();toast('Audio was interrupted. Tap Enable sound to resume.');}wasRunning=running;updateAudioStatus(synth);};
   }
   const synth=S.synth;await synth.unlock();updateAudioStatus(synth);return synth;
  }
@@ -37,9 +38,65 @@
  // Calling the handler immediately preserves Safari's transient user activation.
  const safe=fn=>(...args)=>{try{return Promise.resolve(fn(...args)).catch(failed);}catch(error){failed(error);}};
  function on(id,event,fn){$(id).addEventListener(event,safe(fn));}
- function cancelPlayback(){S.generation++;cancelAnimationFrame(S.raf);if(S.synth)S.synth.stopAll();if('speechSynthesis'in window)window.speechSynthesis.cancel();S.active=[];$('breath-progress').style.transform='scaleX(0)';$$('.note-chip').forEach(x=>x.classList.remove('active'));return S.generation;}
+ function cancelPlayback(){S.generation++;cancelAnimationFrame(S.raf);disposeBackground();if(S.synth)S.synth.stopAll();if('speechSynthesis'in window)window.speechSynthesis.cancel();S.active=[];$('breath-progress').style.transform='scaleX(0)';$$('.note-chip').forEach(x=>x.classList.remove('active'));return S.generation;}
  function loopButton(){ $('loop').classList.toggle('running',S.looping);$('loop-label').textContent=S.looping?'Stop infinite loop':'Start infinite loop';$('loop').querySelector('.play-icon').textContent=S.looping?'■':'▶';$('transport-led').classList.toggle('on',S.looping);}
  function stop(){clearTimeout(S.auto);S.auto=0;S.looping=false;cancelPlayback();loopButton();$('transport-status').textContent='STANDBY';if(S.current)drawInstruments(S.current.notes,[]);}
+ function disposeBackground(){
+  const bg=S.background;if(!bg)return;S.background=null;
+  const media=$('background-audio');media.pause();media.removeAttribute('src');media.load();if(bg.url)URL.revokeObjectURL(bg.url);$('cycle-count').textContent=String(S.cycles).padStart(4,'0');
+  $('background-controls').hidden=true;$('prepare-background').textContent='Prepare lock-screen track';$('background-card').setAttribute('aria-busy','false');$('background-status').textContent='The prepared track repeats automatically. Prepare again for fresh random choices.';
+  if(navigator.mediaSession){for(const action of ['play','pause','stop','seekto','seekbackward','seekforward'])try{navigator.mediaSession.setActionHandler(action,null);}catch(_){}try{navigator.mediaSession.metadata=null;navigator.mediaSession.playbackState='none';navigator.mediaSession.setPositionState?.();}catch(_){} }
+  if(S.synth)updateAudioStatus(S.synth);else{$('audio-led').classList.remove('on');$('audio-status').textContent='READY WHEN YOU ARE';}
+ }
+ function invalidateBackground(){if(S.background){stop();toast('Settings changed. Prepare a new lock-screen track.');}}
+ function passiveTiming(){return {bpm:Number($('bpm').value),style:$('phrasing').value,pause:Number($('interval-pause').value),gap:Number($('gap').value)};}
+ async function playBackground(){
+  const bg=S.background,token=S.generation;if(!bg?.url)return;
+  try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(_){}
+  try{await $('background-audio').play();}catch(error){if(S.background===bg&&S.generation===token&&!(error.name==='AbortError'&&$('background-audio').paused))throw error;}
+ }
+ function backgroundPosition(){
+  const bg=S.background,media=$('background-audio');if(!bg?.url||!navigator.mediaSession)return;
+  try{navigator.mediaSession.playbackState=media.paused?'paused':'playing';if(Number.isFinite(media.duration)&&media.duration>0)navigator.mediaSession.setPositionState?.({duration:media.duration,playbackRate:media.playbackRate,position:Math.max(0,Math.min(media.duration,media.currentTime))});}catch(_){}
+ }
+ function backgroundSession(){
+  const media=$('background-audio'),session=navigator.mediaSession;if(!session)return;
+  try{if(window.MediaMetadata)session.metadata=new MediaMetadata({title:$('interval-title').textContent,artist:'INTERVAL / 01',album:'Passive listening'});}catch(_){}
+  const seek=seconds=>{media.currentTime=Math.max(0,Math.min(media.duration||0,seconds));};
+  const actions={play:safe(playBackground),pause:()=>media.pause(),stop,seekto:e=>seek(e.seekTime),seekbackward:e=>seek(media.currentTime-(e.seekOffset||10)),seekforward:e=>seek(media.currentTime+(e.seekOffset||10))};
+  for(const [action,handler]of Object.entries(actions))try{session.setActionHandler(action,handler);}catch(_){}
+  backgroundPosition();
+ }
+ function syncBackground(){
+  const bg=S.background,media=$('background-audio');if(!bg?.url||!bg.started||document.hidden)return;
+  const time=media.currentTime,segment=bg.track.segments.find(s=>time>=s.start&&time<s.end)||bg.track.segments[0],elapsed=time-segment.start;
+  if(bg.segment!==segment){bg.segment=segment;S.current=segment.cycle;renderLCD(segment.cycle);}
+  $('cycle-count').textContent=segment.group+' / '+bg.track.groups;
+  const indices=media.paused?[]:[...new Set(segment.plan.events.filter(e=>elapsed>=e.at&&elapsed<e.at+e.length).flatMap(e=>e.indices))],signature=segment.start+'|'+indices.join(',');
+  if(bg.signature!==signature){bg.signature=signature;S.active=indices;drawInstruments(segment.cycle.notes,indices);$$('.note-chip').forEach(el=>el.classList.toggle('active',indices.includes(Number(el.dataset.noteIndex))));}
+  const rest=(segment.plan.rests||[]).find(r=>elapsed>=r.start&&elapsed<r.end),betweenPairs=segment.cycle.sequence?.style==='pairs'&&!segment.cycle.sequence.last;
+  $('transport-status').textContent=media.paused?'BACKGROUND PAUSED':rest||elapsed>=segment.plan.duration&&betweenPairs?'PAUSE BETWEEN INTERVALS':elapsed>=segment.plan.duration?'BREATHE':'BACKGROUND LISTENING';
+  const part=segment.plan.segments?.find(s=>elapsed>=s.start&&elapsed<s.end)?.index;
+  $$('[data-sequence-row]').forEach(row=>row.classList.toggle('playing',!media.paused&&(part!==undefined?Number(row.dataset.sequenceRow)===part:betweenPairs||segment.cycle.sequence?.style==='pairs'?Number(row.dataset.sequenceRow)===segment.cycle.sequence.index:false)));
+  const progress=rest?(elapsed-rest.start)/(rest.end-rest.start):elapsed>=segment.plan.duration?(elapsed-segment.plan.duration)/segment.gap:0;$('breath-progress').style.transform=`scaleX(${Math.max(0,Math.min(1,progress))})`;
+ }
+ function animateBackground(){cancelAnimationFrame(S.raf);const tick=()=>{if(!S.background?.url||$('background-audio').paused)return;syncBackground();S.raf=requestAnimationFrame(tick);};tick();}
+ async function prepareBackground(){
+  if(S.background?.preparing){stop();return;}
+  stop();const token=S.generation,bg={preparing:true,started:false};S.background=bg;
+  $('prepare-background').textContent='Cancel preparation';$('background-card').setAttribute('aria-busy','true');$('background-status').textContent='Preparing your drill… keep Safari open until the Play button appears.';
+  try{
+   const rawRoot=S.rawRoot;S.rawRoot=Number($('root-note').value);
+   const deterministic=$('root-mode').value==='fixed'&&(S.sequenceEnabled||$('selection-mode').value==='lock'&&$('direction').value!=='alternate'&&(S.size===2||$('step2rule').value!=='random'));
+   let track;try{track=StudioTrack.plan(i=>{const cycle=makePassive(i);return {...cycle,disjoint:isDisjoint(cycle)};},{...passiveTiming(),targetSeconds:deterministic?0:60});}finally{S.rawRoot=rawRoot;}
+   const blob=await StudioTrack.render(track,{voice:$('voice').value,volume:Number($('volume').value)/100});
+   if(token!==S.generation||S.background!==bg)return;
+   bg.preparing=false;bg.track=track;bg.url=URL.createObjectURL(blob);const media=$('background-audio');media.src=bg.url;media.loop=true;media.load();
+   try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(_){}
+   $('background-controls').hidden=false;$('play-background').textContent='Play background loop';$('prepare-background').textContent='Prepare new track';$('background-card').setAttribute('aria-busy','false');
+   const seconds=Math.ceil(track.duration);bg.description=track.groups+' cycle'+(track.groups===1?'':'s')+' · '+Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0')+' track · repeats';$('background-status').textContent='Ready: '+bg.description+'. Tap Play, then lock the screen.';S.current=track.segments[0].cycle;renderLCD(S.current);drawInstruments(S.current.notes,[]);backgroundSession();backgroundPosition();if(S.synth)updateAudioStatus(S.synth);
+  }catch(error){if(token===S.generation)throw error;}
+ }
  function getConfig(){return {size:S.size,interval:Number($('interval').value),direction:$('direction').value,step2rule:$('step2rule').value,step2interval:Number($('step2interval').value),step2direction:$('step2direction').value,reference:$('reference').value,pool:[...S.pool]};}
  function fitVisible(root,offsets){return T.placeRoot(root,offsets);}
  function makePassive(iteration=0){
@@ -62,7 +119,7 @@
   $('sequence-count').textContent=S.sequence.length+' / 4 INTERVALS';$('add-interval').disabled=S.sequence.length>=4;
   $('sequence-list').innerHTML=S.sequence.map((row,index)=>`<div class="sequence-row" data-sequence-row="${index}"><span class="section-number">${index+1}</span><div><label class="sr-only" for="sequence-interval-${index}">Sequence interval ${index+1}</label><select id="sequence-interval-${index}" data-sequence-index="${index}" data-sequence-field="interval">${T.intervals.map(i=>`<option value="${i.st}"${i.st===row.interval?' selected':''}>${i.short} · ${i.name}</option>`).join('')}</select></div><div><label class="sr-only" for="sequence-direction-${index}">Sequence direction ${index+1}</label><select id="sequence-direction-${index}" data-sequence-index="${index}" data-sequence-field="direction"><option value="up"${row.direction==='up'?' selected':''}>Up ↑</option><option value="down"${row.direction==='down'?' selected':''}>Down ↓</option></select></div><button type="button" class="sequence-remove" data-remove-sequence="${index}" aria-label="Remove interval ${index+1}"${S.sequence.length===1?' disabled':''}>×</button></div>`).join('');
  }
- async function sequenceChanged(){S.iteration=0;refreshControls();save();if(S.looping)await runCycle();else{cancelPlayback();preview();}}
+ async function sequenceChanged(){invalidateBackground();S.iteration=0;refreshControls();save();if(S.looping)await runCycle();else{cancelPlayback();preview();}}
  function isBlind(){return S.mode==='quiz'&&S.question&&!S.session.done&&$('blind').checked;}
  function shownNotes(notes){return isBlind()?notes.slice(0,1):notes;}
  function drawInstruments(notes,active=[]){
@@ -137,7 +194,7 @@
   const token=cancelPlayback();await audio();if(token!==S.generation)return;
   const cycle=makePassive(S.iteration);S.current=cycle;if(!cycle.sequence||cycle.sequence.style!=='pairs'||cycle.sequence.index===0)S.cycles++;renderLCD(cycle);drawInstruments(cycle.notes,[]);
   if($('speech').value==='before'){$('transport-status').textContent='ANNOUNCING';await speak(spoken(cycle),token);if(token!==S.generation)return;}
-  const plan=isDisjoint(cycle)?T.disjointPhrase(cycle.notes,Number($('bpm').value),$('phrasing').value,Number($('interval-pause').value),cycle.harmonic):T.phrase(cycle.notes,Number($('bpm').value),$('phrasing').value,cycle.harmonic);
+  const plan=StudioTrack.phrase({...cycle,disjoint:isDisjoint(cycle)},passiveTiming());
   const betweenPairs=cycle.sequence?.style==='pairs'&&!cycle.sequence.last;plan.gapLabel=betweenPairs?'PAUSE BETWEEN INTERVALS':'BREATHE';
   const morePairs=once&&cycle.sequence?.style==='pairs'&&!cycle.sequence.last;
   const finish=safe(async()=>{if(token!==S.generation)return;if($('speech').value==='after'){$('transport-status').textContent='NAMING THE INTERVAL';await speak(spoken(cycle),token);if(token!==S.generation)return;}
@@ -209,14 +266,22 @@
   for(let m=48;m<=72;m++)$('root-note').add(new Option(T.noteName(m),m));$('root-note').value='60';
   restore();if(!['quiz-up','quiz-down','quiz-harmonic'].some(id=>$(id).checked))$('quiz-up').checked=true;
   buildInstruments();renderSequence();refreshControls();renderPool();renderStats();preview();
-  const unlockFromGesture=e=>{if(e.type==='keydown'&&(e.repeat||e.ctrlKey||e.metaKey||e.altKey||![' ','Enter','r','R'].includes(e.key)))return;audio().catch(()=>{});};
+  const unlockFromGesture=e=>{if(S.background||e.target.closest?.('#background-card'))return;if(e.type==='keydown'&&(e.repeat||e.ctrlKey||e.metaKey||e.altKey||![' ','Enter','r','R'].includes(e.key)))return;audio().catch(()=>{});};
   for(const event of ['touchend','click','keydown'])document.addEventListener(event,unlockFromGesture,{capture:true,passive:true});
   on('enable-audio','click',async()=>{stop();const token=S.generation;const synth=await audio(true);if(token!==S.generation)return;if(Number($('volume').value)===0){toast('Master volume is muted. Raise it to hear the sound test.');return;}synth.play(69,undefined,0.6,0.7,$('voice').value);toast('Sound test: A4 · 440 Hz.');});
   on('loop','click',async()=>{if(S.looping)stop();else await startLoop();});on('once','click',async()=>{stop();S.iteration=0;await runCycle(true);});
+  on('prepare-background','click',prepareBackground);on('stop-background','click',stop);
+  on('play-background','click',()=>{const media=$('background-audio');if(!S.background?.url)return;if(media.paused)return playBackground();media.pause();});
+  on('background-audio','play',()=>{if(!S.background?.url)return;S.background.started=true;S.looping=true;loopButton();$('play-background').textContent='Pause background loop';$('background-status').textContent='Playing: '+S.background.description+'. You can lock the screen or switch apps.';if(S.synth?.ctx.state==='running')S.synth.ctx.suspend().catch(()=>{});backgroundSession();animateBackground();if(S.synth)updateAudioStatus(S.synth);else{$('audio-led').classList.add('on');$('audio-status').textContent='BACKGROUND AUDIO PLAYING';}});
+  on('background-audio','pause',()=>{if(!S.background?.url)return;S.looping=false;loopButton();cancelAnimationFrame(S.raf);$('play-background').textContent='Play background loop';$('background-status').textContent='Paused. Tap Play here or use the lock-screen media controls to resume.';backgroundPosition();syncBackground();if(S.synth)updateAudioStatus(S.synth);});
+  for(const event of ['timeupdate','loadedmetadata','seeked'])on('background-audio',event,()=>{backgroundPosition();syncBackground();});
+  on('background-audio','error',()=>{if(S.background?.url){stop();toast('The prepared track could not play. Prepare it again and tap Play.',true);}});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.background?.url){syncBackground();if(!$('background-audio').paused)animateBackground();}});
   on('passive-tab','click',()=>setMode('passive'));on('quiz-tab','click',()=>setMode('quiz'));
   for(const id of ['passive-tab','quiz-tab'])on(id,'keydown',e=>{if(['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();const mode=S.mode==='quiz'?'passive':'quiz';setMode(mode);$(mode+'-tab').focus();}});
   settingIds.forEach(id=>on(id,$(id).type==='range'?'input':'change',async()=>{
    refreshControls();
+   if(!['view','ghosts','blind','auto-advance','choice-count'].includes(id)&&!id.startsWith('quiz-'))invalidateBackground();
    if(id==='voice'){const token=S.generation,voice=$('voice').value;const synth=await audio();if(token!==S.generation||$('voice').value!==voice)return;synth.instrument=voice;synth.play(S.current?.notes[0]||60,undefined,0.65,0.7,voice);}
    else if(id==='volume'){if(S.synth)S.synth.volume(Number($('volume').value)/100);}
    else if(['view','ghosts','blind'].includes(id)){if(S.current)drawInstruments(S.current.notes,S.active);}
@@ -225,20 +290,20 @@
    else if(!['auto-advance','choice-count'].includes(id)&&S.mode==='passive'){if(S.looping){S.iteration=0;await runCycle();}else{cancelPlayback();preview();}}
    save();
   }));
-  $$('[data-size]').forEach(b=>b.addEventListener('click',safe(async()=>{S.sequenceEnabled=b.dataset.size==='sequence';if(!S.sequenceEnabled)S.size=Number(b.dataset.size);refreshControls();if(S.looping){S.iteration=0;await runCycle();}else{cancelPlayback();preview();}save();})));
+  $$('[data-size]').forEach(b=>b.addEventListener('click',safe(async()=>{invalidateBackground();S.sequenceEnabled=b.dataset.size==='sequence';if(!S.sequenceEnabled)S.size=Number(b.dataset.size);refreshControls();if(S.looping){S.iteration=0;await runCycle();}else{cancelPlayback();preview();}save();})));
   on('add-interval','click',async()=>{if(S.sequence.length>=4)return;S.sequence.push({interval:7,direction:'up'});renderSequence();await sequenceChanged();});
   $('sequence-list').addEventListener('change',safe(async e=>{const input=e.target;if(!input.dataset.sequenceField)return;const index=Number(input.dataset.sequenceIndex);S.sequence[index][input.dataset.sequenceField]=input.dataset.sequenceField==='interval'?Number(input.value):input.value;await sequenceChanged();}));
   $('sequence-list').addEventListener('click',safe(async e=>{const button=e.target.closest('[data-remove-sequence]');if(!button||S.sequence.length<=1)return;S.sequence.splice(Number(button.dataset.removeSequence),1);renderSequence();await sequenceChanged();}));
   $$('[data-quiz-size]').forEach(b=>b.addEventListener('click',()=>{S.quizSize=Number(b.dataset.quizSize);refreshControls();save();}));
-  $$('[data-bpm]').forEach(b=>b.addEventListener('click',safe(async()=>{$('bpm').value=b.dataset.bpm;refreshControls();save();if(S.looping)await runCycle();})));
+  $$('[data-bpm]').forEach(b=>b.addEventListener('click',safe(async()=>{invalidateBackground();$('bpm').value=b.dataset.bpm;refreshControls();save();if(S.looping)await runCycle();})));
   $$('[data-drill]').forEach(b=>b.addEventListener('click',safe(async()=>{
    if(S.mode!=='passive')setMode('passive');S.sequenceEnabled=false;$('selection-mode').value='lock';
    if(b.dataset.drill==='cell'){S.size=3;$('interval').value='2';$('direction').value='down';$('step2rule').value='fixed';$('step2interval').value='10';$('step2direction').value='up';$('reference').value='chain';}
    else{S.size=2;const [i,d]=b.dataset.drill.split(',').map(Number);$('interval').value=i;$('direction').value=d<0?'down':'up';}
    refreshControls();save();await startLoop();
   })));
-  $$('[data-pool]').forEach(b=>b.addEventListener('click',()=>{S.pool=new Set(poolPresets()[b.dataset.pool]);renderPool();renderStats();save();}));
-  $('pool').addEventListener('click',e=>{const b=e.target.closest('[data-pool-note]');if(!b)return;const n=Number(b.dataset.poolNote);if(S.pool.has(n)){if(S.pool.size===1){toast('Keep at least one interval in your pool.');return;}S.pool.delete(n);}else S.pool.add(n);renderPool();renderStats();save();});
+  $$('[data-pool]').forEach(b=>b.addEventListener('click',()=>{invalidateBackground();S.pool=new Set(poolPresets()[b.dataset.pool]);renderPool();renderStats();save();}));
+  $('pool').addEventListener('click',e=>{const b=e.target.closest('[data-pool-note]');if(!b)return;const n=Number(b.dataset.poolNote);if(S.pool.has(n)){if(S.pool.size===1){toast('Keep at least one interval in your pool.');return;}invalidateBackground();S.pool.delete(n);}else{invalidateBackground();S.pool.add(n);}renderPool();renderStats();save();});
   on('new-question','click',newQuestion);on('replay','click',()=>replayQuestion());on('harmonic','click',()=>replayQuestion(true));
   $('quiz-choices').addEventListener('click',safe(async e=>{const b=e.target.closest('[data-choice]');if(b)await answer(Number(b.dataset.step),Number(b.dataset.choice));}));
   on('reset-score','click',()=>{stop();S.session=new T.QuizSession();S.question=null;S.current={notes:[],steps:[]};$('quiz-choices').innerHTML='';$('feedback').hidden=true;$('new-question').textContent='▶ Start ear quiz';$('replay').disabled=true;$('harmonic').disabled=true;$('quiz-title').textContent='A fresh pair of ears.';$('question-label').textContent='YOUR NEXT SMALL BREAKTHROUGH';$('quiz-instruction').textContent='Listen to the notes, then name the distance between them.';drawInstruments([],[]);renderStats();save();toast('Scores reset. Your practice settings are saved.');});
@@ -253,7 +318,7 @@
     else if(/^[1-9]$/.test(e.key)&&S.question&&!S.session.done){const step=S.session.answers.findIndex(a=>a===null),buttons=$$(`.choice[data-step="${step}"]`),b=buttons[Number(e.key)-1];if(b)await answer(step,Number(b.dataset.choice));}
    }
   }));
-  window.addEventListener('pagehide',()=>{stop();save();});
+  window.addEventListener('pagehide',()=>{if(!S.background)stop();save();});
   if(!('speechSynthesis'in window)){$('speech').value='off';$('speech').disabled=true;$('speech-hint').textContent='Voice announcements are unavailable in this browser.';}
  }
  initialize();

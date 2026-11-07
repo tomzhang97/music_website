@@ -13,6 +13,8 @@ A complete browser-local interval ear training studio. Open **[index.html](index
 
 Use **Space** to start/stop passive looping. In the quiz, **R / Space** replays, **1–9** answers the first unfinished step, and **Enter** starts the next question. **Escape** stops playback. Shortcuts leave focused form controls alone.
 
+For **iPhone lock-screen / background listening**, set the sound, volume and drill, then use **Prepare lock-screen track → Play background loop**. Wait for preparation to finish and tap Play before locking the screen or switching apps. The real audio element repeats the rendered music independently of page animation callbacks; supported Media Session controls provide play/pause/stop/seek from system media controls. A fixed drill repeats one complete group. Random, rotating and transposing drills prepare about one minute of complete groups (up to 96), then repeat that playlist; prepare again for fresh random choices. The cycle readout shows position within the prepared playlist. Musical or volume edits clear the track, while instrument-layout changes preserve it. Spoken announcements use the interactive foreground player.
+
 On iPhone/Safari, tap **Enable sound**, then use a play control. The sound test plays A4 (440 Hz). Supported browsers use the playback audio-session type so the iPhone Silent switch does not mute the music. Suspended/interrupted contexts can resume on a fresh tap, and a failed unlock offers a retry instead of hanging. On older iOS versions without AudioSession support, turn off Silent mode if needed and check media volume/Bluetooth output. Settings and scores are saved locally when storage is available. Blocked storage, including opaque-origin `sandbox="allow-scripts"` frames, does not prevent operation. The application makes no network requests for assets, scripts or audio.
 
 ## Static hosting / GitHub Pages
@@ -29,6 +31,7 @@ The repository root is ready for static hosting. For GitHub Pages, select **Sett
 | `styles.css` | Responsive graphite/amber/teal studio interface |
 | `theory.js` | Interval data, cell math, root traversal, fingering, timing and scoring |
 | `synth.js` | Audio synthesis, effect routing and voice lifecycle |
+| `track.js` | Complete-group playlists, offline rendering and self-contained native-media WAV tracks |
 | `app.js` | Instrument visualizers, transport, settings and quiz workflows |
 
 After editing a source file, rebuild with Python 3:
@@ -42,7 +45,7 @@ python3 scripts/build.py
 Domain checks use only Node's built-in test runner:
 
 ```sh
-node --test tests/theory.test.cjs
+node --test tests/*.test.cjs
 ```
 
 Browser/audio tests are development-only. Install the pinned Playwright dependency and Chromium, then start the local server in one terminal:
@@ -61,6 +64,7 @@ npm run test:audio
 npm run test:browser
 npm run test:mobile
 npm run test:connections
+npm run test:background
 ```
 
 For an already installed Google Chrome, set `BROWSER_CHANNEL=chrome`. `TEST_URL` overrides the preview URL, `QA_DIR` sets the screenshot directory, and `PLAYWRIGHT_PATH` optionally selects an existing Playwright installation. Development dependencies are never bundled into the app.
@@ -73,4 +77,4 @@ Audio uses **12-tone equal temperament, A4 = 440 Hz**. The LCD reports exact equ
 
 Automatic root modes relocate pitches by octaves to favor the visualizers while preserving pitch classes. A fixed root is kept exactly. Extreme compound 3-note cells can exceed a physical instrument's display range; those pitches still sound correctly and the interface reports unavailable positions instead of changing the interval.
 
-Keep the tab active for consistent continuous practice: browsers can suspend audio or throttle visual scheduling in the background, especially on phones. Web Speech voices and availability depend on the browser/OS and may require a locally installed voice for offline speech. The music engine itself is entirely offline.
+Use the prepared lock-screen player when Safari will be hidden; the interactive loop needs the tab to stay active. Browser tests cover native-media progression and frozen animation callbacks, including a frozen Chromium page lifecycle; physical iPhone lock-screen output still needs confirmation on the device. Calls, other media apps, closing Safari or system memory pressure can interrupt playback. Web Speech voices and availability depend on the browser/OS and may require a locally installed voice for offline speech. The music engine itself is entirely offline.
