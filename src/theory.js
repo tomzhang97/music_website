@@ -83,6 +83,20 @@
   if(style==='echo'){time+=beat*0.55;notes.forEach((_,i)=>{add([i],time,0.34,beat*0.8);time+=beat;});}
   return {events,duration:Math.max(time,...events.map(e=>e.at+e.length))+0.12};
  }
+ function disjointPhrase(notes,bpm=100,style='pure',pause=0.7,harmonic=false){
+  if(notes.length<2)return {...phrase(notes,bpm,style,harmonic),rests:[],segments:[]};
+  const gap=Number.isFinite(Number(pause))?Math.max(0.2,Math.min(6,Number(pause))):0.7;
+  const events=[],rests=[],segments=[];let time=0;
+  for(let i=0;i<notes.length-1;i++){
+   const pair=phrase(notes.slice(i,i+2),bpm,style,harmonic),start=time;
+   for(const event of pair.events)events.push({...event,indices:event.indices.map(index=>index+i),at:event.at+start});
+   // Account for the synth's 0.36 s release and 0.04 s source-stop margin.
+   time+=Math.max(pair.duration,...pair.events.map(event=>event.at+event.length+0.4));
+   segments.push({index:i,start,end:time});
+   if(i<notes.length-2){rests.push({start:time,end:time+gap});time+=gap;}
+  }
+  return {events,rests,segments,duration:time};
+ }
  function choices(pool,target,count=0,rng=Math.random){
   const others=[...new Set(pool)].filter(x=>x!==target).sort((a,b)=>Math.abs(a-target)-Math.abs(b-target)||a-b);
   return shuffle([target,...others.slice(0,count?Math.max(0,count-1):others.length)],rng);
@@ -97,5 +111,5 @@
   }
   get accuracy(){return this.total?Math.round(this.correct/this.total*100):0;}
  }
- global.IntervalCore={intervals,tuning,frequency,noteName,info,pick,shuffle,cellOffsets,normalizeSequence,sequenceOffsets,sequencePosition,fitRoot,placeRoot,nextRoot,positions,solveFingering,phrase,choices,QuizSession};
+ global.IntervalCore={intervals,tuning,frequency,noteName,info,pick,shuffle,cellOffsets,normalizeSequence,sequenceOffsets,sequencePosition,fitRoot,placeRoot,nextRoot,positions,solveFingering,phrase,disjointPhrase,choices,QuizSession};
 })(globalThis);

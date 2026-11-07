@@ -3,13 +3,14 @@
  const T=IntervalCore,$=id=>document.getElementById(id),$$=s=>Array.from(document.querySelectorAll(s));
  const badges=['①','②','③','④','⑤'];
  const S={mode:'passive',size:2,quizSize:2,sequenceEnabled:false,sequence:[{interval:2,direction:'up'},{interval:7,direction:'up'}],pool:new Set(T.intervals.filter(x=>x.st<=12).map(x=>x.st)),looping:false,iteration:0,cycles:0,rawRoot:60,current:null,question:null,active:[],generation:0,raf:0,auto:0,session:new T.QuizSession(),synth:null};
- const settingIds=['voice','volume','view','ghosts','interval','selection-mode','direction','step2rule','step2interval','step2direction','reference','root-mode','root-note','repetitions','bpm','gap','phrasing','speech','blind','choice-count','auto-advance','quiz-up','quiz-down','quiz-harmonic','sequence-style'];
+ const settingIds=['voice','volume','view','ghosts','interval','selection-mode','direction','step2rule','step2interval','step2direction','reference','root-mode','root-note','repetitions','bpm','gap','phrasing','speech','blind','choice-count','auto-advance','quiz-up','quiz-down','quiz-harmonic','sequence-style','cell-connection','interval-pause'];
  let toastTimer=0,lastCenter='',dragStart=null,dragMoved=false;
  function toast(message,error=false){clearTimeout(toastTimer);$('toast').textContent=message;$('toast').classList.toggle('error',error);$('toast').hidden=false;toastTimer=setTimeout(()=>$('toast').hidden=true,4200);}
  function save(){try{const settings={};settingIds.forEach(id=>settings[id]=$(id).type==='checkbox'?$(id).checked:$(id).value);localStorage.setItem('interval-01-v1',JSON.stringify({settings,size:S.size,quizSize:S.quizSize,sequenceEnabled:S.sequenceEnabled,sequence:S.sequence,pool:[...S.pool],stats:{total:S.session.total,correct:S.session.correct,streak:S.session.streak,best:S.session.best,byInterval:S.session.byInterval}}));}catch(_){} }
  function restore(){try{
   const data=JSON.parse(localStorage.getItem('interval-01-v1')||'null');if(!data||typeof data!=='object')return;
   settingIds.forEach(id=>{const el=$(id),v=data.settings?.[id];if(el.type==='checkbox'){if(typeof v==='boolean')el.checked=v;}else if(el.tagName==='SELECT'){if([...el.options].some(o=>o.value===String(v)))el.value=String(v);}else if(Number.isFinite(Number(v))&&v!==null){el.value=String(Math.max(Number(el.min),Math.min(Number(el.max),Number(v))));}});
+  if(data.settings?.['sequence-style']==='pairs'&&data.settings?.['interval-pause']===undefined){const previousGap=Number(data.settings.gap);if(Number.isFinite(previousGap)&&previousGap>=0.2&&previousGap<=6)$('interval-pause').value=String(previousGap);}
   if(data.size===3)S.size=3;if(data.quizSize===3)S.quizSize=3;S.sequenceEnabled=data.sequenceEnabled===true;if(data.sequence)S.sequence=T.normalizeSequence(data.sequence);
   if(Array.isArray(data.pool)){const valid=data.pool.filter(n=>T.intervals.some(i=>i.st===n));if(valid.length)S.pool=new Set(valid);}
   const st=data.stats;if(st&&Number.isInteger(st.total)&&st.total>=0&&Number.isInteger(st.correct)&&st.correct>=0&&st.correct<=st.total){S.session.total=st.total;S.session.correct=st.correct;S.session.best=Number.isInteger(st.best)&&st.best>=0?st.best:0;S.session.streak=Number.isInteger(st.streak)&&st.streak>=0?st.streak:0;
@@ -50,7 +51,7 @@
    if(!pairs||position.index===0)S.rawRoot=T.nextRoot(rootConfig,rootIteration,S.rawRoot);
    const visibleOffsets=pairs?[0,...rows.map(signed)]:offsets;
    const root=rootConfig.mode==='fixed'?S.rawRoot:fitVisible(S.rawRoot,visibleOffsets);
-   return {notes:offsets.map(o=>root+o),steps:offsets.slice(1).map((o,i)=>o-offsets[i]),harmonic:false,config:{reference:'chain'},sequence:{...position,style:pairs?'pairs':'phrase',count:rows.length}};
+   return {notes:offsets.map(o=>root+o),steps:offsets.slice(1).map((o,i)=>o-offsets[i]),harmonic:false,config:{reference:'chain'},sequence:{...position,style:pairs?'pairs':$('sequence-style').value==='disjoint'?'disjoint':'phrase',count:rows.length}};
   }
   const config=getConfig();if($('selection-mode').value==='rotate')config.interval=[...S.pool].sort((a,b)=>a-b)[iteration%S.pool.size];
   const offsets=T.cellOffsets(config,iteration);S.rawRoot=T.nextRoot(rootConfig,iteration,S.rawRoot);
@@ -61,7 +62,7 @@
   $('sequence-count').textContent=S.sequence.length+' / 4 INTERVALS';$('add-interval').disabled=S.sequence.length>=4;
   $('sequence-list').innerHTML=S.sequence.map((row,index)=>`<div class="sequence-row" data-sequence-row="${index}"><span class="section-number">${index+1}</span><div><label class="sr-only" for="sequence-interval-${index}">Sequence interval ${index+1}</label><select id="sequence-interval-${index}" data-sequence-index="${index}" data-sequence-field="interval">${T.intervals.map(i=>`<option value="${i.st}"${i.st===row.interval?' selected':''}>${i.short} · ${i.name}</option>`).join('')}</select></div><div><label class="sr-only" for="sequence-direction-${index}">Sequence direction ${index+1}</label><select id="sequence-direction-${index}" data-sequence-index="${index}" data-sequence-field="direction"><option value="up"${row.direction==='up'?' selected':''}>Up ↑</option><option value="down"${row.direction==='down'?' selected':''}>Down ↓</option></select></div><button type="button" class="sequence-remove" data-remove-sequence="${index}" aria-label="Remove interval ${index+1}"${S.sequence.length===1?' disabled':''}>×</button></div>`).join('');
  }
- async function sequenceChanged(){S.iteration=0;save();if(S.looping)await runCycle();else{cancelPlayback();preview();}}
+ async function sequenceChanged(){S.iteration=0;refreshControls();save();if(S.looping)await runCycle();else{cancelPlayback();preview();}}
  function isBlind(){return S.mode==='quiz'&&S.question&&!S.session.done&&$('blind').checked;}
  function shownNotes(notes){return isBlind()?notes.slice(0,1):notes;}
  function drawInstruments(notes,active=[]){
@@ -98,10 +99,11 @@
   document.addEventListener('pointerup',()=>{dragStart=null;});document.addEventListener('pointercancel',()=>{dragStart=null;dragMoved=true;});
  }
  async function audition(midi,position){stop();const token=cancelPlayback();await audio();if(token!==S.generation)return;S.current={notes:[midi],steps:[],harmonic:false,manualPosition:position};playScheduled([midi],T.phrase([midi],100,'pure'),token,0);if(position){$('guitar-info').textContent=`String ${position.string+1} · Fret ${position.fret} · ${T.noteName(midi)} · ${T.frequency(midi).toFixed(2)} Hz`;}}
+ function isDisjoint(cycle){return cycle.sequence?cycle.sequence.style==='disjoint':cycle.notes.length>2&&$('cell-connection').value==='disjoint';}
  function renderLCD(cycle){
-  const step=cycle.steps[0]||0,first=T.info(step),cell=cycle.notes.length>2,sequence=cycle.sequence;
+  const step=cycle.steps[0]||0,first=T.info(step),cell=cycle.notes.length>2,sequence=cycle.sequence,disjoint=isDisjoint(cycle);
   $('interval-title').textContent=cell?cycle.steps.map(s=>T.info(s).short+(s<0?' ↓':' ↑')).join(sequence?' · ':' + '):first.name;
-  $('interval-direction').textContent=sequence?(sequence.style==='pairs'?`INTERVAL ${sequence.index+1} OF ${sequence.count} · ${step<0?'DESCENDING ↓':'ASCENDING ↑'}`:`${sequence.count}-INTERVAL CONNECTED PHRASE`):cell?'THREE-NOTE INTERVAL CELL · '+(cycle.config?.reference==='root'?'FROM ROOT':'CHAINED'):cycle.harmonic?'HARMONIC INTERVAL ⇅':step<0?'DESCENDING INTERVAL ↓':'ASCENDING INTERVAL ↑';
+  $('interval-direction').textContent=sequence?(sequence.style==='pairs'?`INTERVAL ${sequence.index+1} OF ${sequence.count} · ${step<0?'DESCENDING ↓':'ASCENDING ↑'}`:`${sequence.count}-INTERVAL ${disjoint?'DISJOINT PAIRS':'CONTINUOUS PHRASE'}`):cell?(disjoint?'THREE-NOTE DISJOINT CELL · ':'THREE-NOTE CONTINUOUS CELL · ')+(cycle.config?.reference==='root'?'FROM ROOT':'CHAINED'):cycle.harmonic?'HARMONIC INTERVAL ⇅':step<0?'DESCENDING INTERVAL ↓':'ASCENDING INTERVAL ↑';
   $('interval-symbol').innerHTML=(sequence&&cell?sequence.count+'×':cell?'1·2·3':first.short)+`<span>${cell?'LISTEN · CONNECT · REPEAT':(step>=0?'+':'')+step+' SEMITONES'}</span>`;
   $('interval-symbol').closest('.lcd').classList.toggle('sequence-lcd',!!sequence&&cell);
   $('note-sequence').innerHTML=cycle.notes.map((n,i)=>(i?`<span class="step-arrow">${cycle.steps[i-1]<0?'↘':'↗'}<br>${cycle.steps[i-1]>0?'+':''}${cycle.steps[i-1]} st</span>`:'')+`<div class="note-chip" data-note-index="${i}">${badges[i]} ${T.noteName(n)}<small>${T.frequency(n).toFixed(1)} Hz</small></div>`).join('');
@@ -110,13 +112,19 @@
   $$('[data-sequence-row]').forEach(row=>row.classList.toggle('playing',!!sequence&&sequence.style==='pairs'&&Number(row.dataset.sequenceRow)===sequence.index));
  }
  function playScheduled(notes,plan,token,gap=0,onFinish){
-  const synth=S.synth,start=synth.ctx.currentTime+0.045;let last='';S.current={...S.current,notes};
+  const synth=S.synth,start=synth.ctx.currentTime+0.045;let last='',lastPart=-2;S.current={...S.current,notes};
   for(const e of plan.events)for(const i of e.indices)synth.play(notes[i],start+e.at,e.length,e.velocity,$('voice').value);
   drawInstruments(notes,[]);
   function tick(){if(token!==S.generation)return;const elapsed=synth.ctx.currentTime-start;
    const indices=[...new Set(plan.events.filter(e=>elapsed>=e.at&&elapsed<e.at+e.length).flatMap(e=>e.indices))];
    if(indices.join(',')!==last){last=indices.join(',');S.active=indices;drawInstruments(notes,indices);$$('.note-chip').forEach(el=>el.classList.toggle('active',indices.includes(Number(el.dataset.noteIndex))));}
-   if(S.mode==='passive'){$('transport-status').textContent=elapsed<plan.duration?'LISTENING':gap>0?'BREATHE':'STANDBY';$('breath-progress').style.transform=`scaleX(${gap>0?Math.max(0,Math.min(1,(elapsed-plan.duration)/gap)):0})`;}
+   if(S.mode==='passive'){
+    const rest=(plan.rests||[]).find(r=>elapsed>=r.start&&elapsed<r.end);
+    $('transport-status').textContent=rest?'PAUSE BETWEEN INTERVALS':elapsed<plan.duration?'LISTENING':gap>0?(plan.gapLabel||'BREATHE'):'STANDBY';
+    const progress=rest?(elapsed-rest.start)/(rest.end-rest.start):gap>0?(elapsed-plan.duration)/gap:0;
+    $('breath-progress').style.transform=`scaleX(${Math.max(0,Math.min(1,progress))})`;
+    if(plan.segments){const part=plan.segments.find(s=>elapsed>=s.start&&elapsed<s.end)?.index??-1;if(part!==lastPart){lastPart=part;$$('[data-sequence-row]').forEach(row=>row.classList.toggle('playing',!!S.current.sequence&&Number(row.dataset.sequenceRow)===part));}}
+   }
    if(elapsed>=plan.duration+gap){S.active=[];drawInstruments(notes,[]);if(onFinish)onFinish();else if(S.mode==='passive')$('transport-status').textContent='STANDBY';return;}
    S.raf=requestAnimationFrame(tick);
   }tick();
@@ -129,16 +137,18 @@
   const token=cancelPlayback();await audio();if(token!==S.generation)return;
   const cycle=makePassive(S.iteration);S.current=cycle;if(!cycle.sequence||cycle.sequence.style!=='pairs'||cycle.sequence.index===0)S.cycles++;renderLCD(cycle);drawInstruments(cycle.notes,[]);
   if($('speech').value==='before'){$('transport-status').textContent='ANNOUNCING';await speak(spoken(cycle),token);if(token!==S.generation)return;}
-  const plan=T.phrase(cycle.notes,Number($('bpm').value),$('phrasing').value,cycle.harmonic);
+  const plan=isDisjoint(cycle)?T.disjointPhrase(cycle.notes,Number($('bpm').value),$('phrasing').value,Number($('interval-pause').value),cycle.harmonic):T.phrase(cycle.notes,Number($('bpm').value),$('phrasing').value,cycle.harmonic);
+  const betweenPairs=cycle.sequence?.style==='pairs'&&!cycle.sequence.last;plan.gapLabel=betweenPairs?'PAUSE BETWEEN INTERVALS':'BREATHE';
   const morePairs=once&&cycle.sequence?.style==='pairs'&&!cycle.sequence.last;
   const finish=safe(async()=>{if(token!==S.generation)return;if($('speech').value==='after'){$('transport-status').textContent='NAMING THE INTERVAL';await speak(spoken(cycle),token);if(token!==S.generation)return;}
    if(morePairs){S.iteration++;await runCycle(true);}else if(!once&&S.looping){S.iteration++;await runCycle();}else{$('transport-status').textContent='STANDBY';}
   });
-  playScheduled(cycle.notes,plan,token,once&&!morePairs?0:Number($('gap').value),finish);
+  playScheduled(cycle.notes,plan,token,betweenPairs?Number($('interval-pause').value):once?0:Number($('gap').value),finish);
  }
  async function startLoop(){stop();S.looping=true;S.iteration=0;S.rawRoot=Number($('root-note').value);loopButton();await runCycle();}
  function refreshControls(){
   $('classic-settings').hidden=S.sequenceEnabled;$('sequence-settings').hidden=!S.sequenceEnabled;
+  const showPause=S.sequenceEnabled?S.sequence.length>1&&['disjoint','pairs'].includes($('sequence-style').value):S.size===3&&$('cell-connection').value==='disjoint';$('interval-pause-field').hidden=!showPause;$('interval-pause-value').textContent=Number($('interval-pause').value).toFixed(1)+' s';
   $('cell-settings').hidden=S.size!==3;$('rotation-help').hidden=$('selection-mode').value!=='rotate';$('interval').disabled=$('selection-mode').value==='rotate';$('custom-step2').hidden=['repeat','mirror'].includes($('step2rule').value);$('step2interval').disabled=$('step2rule').value==='random';
   $$('[data-size]').forEach(b=>{const active=b.dataset.size==='sequence'?S.sequenceEnabled:!S.sequenceEnabled&&Number(b.dataset.size)===S.size;b.classList.toggle('selected',active);b.setAttribute('aria-pressed',String(active));});
   $$('[data-quiz-size]').forEach(b=>{const active=Number(b.dataset.quizSize)===S.quizSize;b.classList.toggle('selected',active);b.setAttribute('aria-pressed',String(active));});
@@ -192,7 +202,7 @@
   const q=S.question;if(!q)return;S.sequenceEnabled=false;S.size=q.notes.length;$('selection-mode').value='lock';$('interval').value=Math.abs(q.steps[0]);$('direction').value=q.harmonic?'harmonic':q.steps[0]<0?'down':'up';$('root-mode').value='fixed';
   if(![...$('root-note').options].some(o=>Number(o.value)===q.notes[0])){const o=new Option(T.noteName(q.notes[0]),q.notes[0]);$('root-note').add(o);}$('root-note').value=q.notes[0];
   if(q.steps.length===2){$('step2rule').value='fixed';$('step2interval').value=Math.abs(q.steps[1]);$('step2direction').value=q.steps[1]<0?'down':'up';$('reference').value='chain';}
-  $('phrasing').value='pure';refreshControls();setMode('passive');save();await startLoop();$('passive-tab').scrollIntoView({behavior:'smooth',block:'start'});
+  $('phrasing').value='pure';$('cell-connection').value='continuous';refreshControls();setMode('passive');save();await startLoop();$('passive-tab').scrollIntoView({behavior:'smooth',block:'start'});
  }
  function initialize(){
   for(const id of ['interval','step2interval'])$(id).innerHTML=T.intervals.map(i=>`<option value="${i.st}">${i.short} · ${i.name}</option>`).join('');$('interval').value='7';$('step2interval').value='10';

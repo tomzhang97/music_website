@@ -71,3 +71,21 @@ test('pair sequence advances in order and transposes only after the last configu
  const steps=[{interval:2,direction:'down'},{interval:7,direction:'up'},{interval:5,direction:'down'},{interval:12,direction:'up'}];
  assert.deepEqual([0,1,2,3,4,5].map(i=>{const s=T.sequencePosition?.(steps,i);return s?[s.index,s.group,s.last]:null;}),[[0,0,false],[1,0,false],[2,0,false],[3,0,true],[0,1,false],[1,1,false]]);
 });
+test('disjoint cells repeat the shared note instead of restarting from the original root',()=>{
+ const p=T.disjointPhrase?.([60,62,64],120,'pure',0.7);
+ assert.deepEqual(p?arr(p.events).flatMap(e=>arr(e.indices).map(i=>[60,62,64][i])):[],[60,62,62,64]);
+ assert.equal(p.rests.length,1);assert.ok(Math.abs(p.rests[0].end-p.rests[0].start-0.7)<1e-9);
+ assert.ok(p.events[2].at>=p.events[1].at+p.events[1].length+0.4+0.7-1e-9);
+});
+test('four disjoint intervals articulate adjacent pairs and contain three configurable pauses',()=>{
+ const notes=[60,62,57,67,60],p=T.disjointPhrase?.(notes,200,'pure',1.2);
+ assert.deepEqual(p?arr(p.events).flatMap(e=>arr(e.indices).map(i=>notes[i])):[],[60,62,62,57,57,67,67,60]);
+ assert.equal(p.rests.length,3);p.rests.forEach(r=>assert.ok(Math.abs(r.end-r.start-1.2)<1e-9));
+ assert.ok(p.duration>=p.events.at(-1).at+p.events.at(-1).length+0.4-1e-9);
+});
+test('disjoint cadence maps harmonic locks and echoes to each pair without adding a final pause',()=>{
+ for(const [style,count] of [['pure',4],['lock',8],['cluster',8],['echo',8],['swing',4]]){
+  const p=T.disjointPhrase?.([60,62,64],100,style,0.5);assert.equal(p?.events.flatMap(e=>Array.from(e.indices)).length,count,style);assert.equal(p.rests.length,1);assert.ok(p.duration>p.rests[0].end);
+ }
+ const harmonic=T.disjointPhrase([60,62,64],100,'pure',0.5,true);assert.deepEqual(arr(harmonic.events[0].indices),[0,1]);assert.deepEqual(arr(harmonic.events[1].indices),[1,2]);
+});

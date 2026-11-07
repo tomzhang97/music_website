@@ -1,0 +1,7 @@
+# Continuous and disjoint interval connections
+
+Requested behavior: C–D–E plays continuously, or C–D, pause, D–E plays as two separately articulated adjacent intervals. The shared endpoint starts the next pair; it must not reset to the original root.
+
+Implementation: add Continuous / Disjoint to three-note cells and add a Disjoint chained-pairs option to the configurable 1–4 interval sequence. Preserve the previous same-root pair option as a distinct third choice. Add a saved Pause between intervals setting (0.2–6 s), separate from the breath between complete cycles. In disjoint mode each pair receives the selected cadence style and direction, with a pause after the voice-release allowance. Remap playback events to the original note indices so note badges and both visualizers stay correct when the shared note repeats. Show an explicit pause state and progress bar. Complete groups count once, shift roots once, and obey Stop.
+
+Plan: (1) test exact event order, shared endpoints, rest lengths and each cadence; (2) implement the pure disjoint schedule plus UI/persistence; (3) verify three-note and four-interval groups, connected/same-root modes, root changes, cancellation and reload in Chrome and WebKit; (4) inspect desktop/360px controls, run existing checks, review, rebuild and publish. Preserve iPhone activation/recovery code. Quiz handoff selects continuous playback to match the original question.
