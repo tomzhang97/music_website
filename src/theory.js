@@ -36,6 +36,12 @@
    out.push((c.reference==='root'?0:first)+second);
   }return out;
  }
+ function normalizeSequence(value){
+  const rows=Array.isArray(value)?value.filter(s=>s&&intervals.some(i=>i.st===Number(s.interval))&&['up','down'].includes(s.direction)).slice(0,4).map(s=>({interval:Number(s.interval),direction:s.direction})):[];
+  return rows.length?rows:[{interval:7,direction:'up'}];
+ }
+ function sequenceOffsets(value){const out=[0];for(const step of normalizeSequence(value))out.push(out.at(-1)+step.interval*(step.direction==='down'?-1:1));return out;}
+ function sequencePosition(value,iteration=0){const rows=normalizeSequence(value),n=Math.max(0,Math.floor(iteration)||0),index=n%rows.length;return {index,group:Math.floor(n/rows.length),last:index===rows.length-1,step:rows[index],count:rows.length};}
  function fitRoot(root,offsets){return Math.max(48-Math.min(...offsets),Math.min(84-Math.max(...offsets),Math.round(root)));}
  // Relocate by octaves only: clamping would change the musical root progression.
  function placeRoot(root,offsets){
@@ -91,5 +97,5 @@
   }
   get accuracy(){return this.total?Math.round(this.correct/this.total*100):0;}
  }
- global.IntervalCore={intervals,tuning,frequency,noteName,info,pick,shuffle,cellOffsets,fitRoot,placeRoot,nextRoot,positions,solveFingering,phrase,choices,QuizSession};
+ global.IntervalCore={intervals,tuning,frequency,noteName,info,pick,shuffle,cellOffsets,normalizeSequence,sequenceOffsets,sequencePosition,fitRoot,placeRoot,nextRoot,positions,solveFingering,phrase,choices,QuizSession};
 })(globalThis);

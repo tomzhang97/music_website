@@ -2,20 +2,22 @@
 
 A complete browser-local interval ear training studio. Open **[index.html](index.html)** directly, or serve the repository with any static web server. No build, installation, backend, API keys, CDN, sound samples, or internet connection are needed to use the app.
 
+[Open the live studio](https://tomzhang97.github.io/music_website/)
+
 ## Practice
 
-- **Passive Listening:** infinite or single-cycle playback; locked intervals or pool rotation; ascending, descending, harmonic and alternate directions; 2-note intervals and configurable 3-note cells; five cadence styles; 40–200 BPM; adjustable breath; root transposition and repeats; optional spoken announcements.
+- **Passive Listening:** infinite or single-cycle playback; locked intervals or pool rotation; ascending, descending, harmonic and alternate directions; 2-note intervals and configurable 3-note cells; five cadence styles; 40–200 BPM; adjustable breath; root transposition and repeats; optional spoken announcements. Add a self-configured sequence of 1–4 intervals, with individual ascending/descending directions; play it as a connected phrase or separate pairs from the same root.
 - **Ear Quiz:** 2-note and chained 3-note questions; selectable directions and interval pools; close distractors or all enabled choices; hidden answer notes; replay and harmonic audition; same-root answer comparisons; live score, streaks and per-interval accuracy; direct handoff into a listening loop.
 - **Live instruments:** clickable 3-octave piano (C3–C6) and standard-tuned 6-string guitar (frets 0–15), compact fingering solver, step badges, unison ghosts and automatic horizontal centering.
 - **Eleven procedural voices:** Concert Grand, Felt Upright, Honky-Tonk, Rhodes, Wurlitzer, DX FM, steel-string, nylon-string, hollowbody jazz guitar, analog string pad and sine tuning fork. Additive/FM/physical modeling synthesis runs through procedural room convolution, compression and master gain.
 
 Use **Space** to start/stop passive looping. In the quiz, **R / Space** replays, **1–9** answers the first unfinished step, and **Enter** starts the next question. **Escape** stops playback. Shortcuts leave focused form controls alone.
 
-Click or tap a play control to unlock audio. Settings and scores are saved locally when storage is available. Blocked storage, including opaque-origin `sandbox="allow-scripts"` frames, does not prevent operation. The application makes no network requests for assets, scripts or audio.
+On iPhone/Safari, tap **Enable sound**, then use a play control. The sound test plays A4 (440 Hz). Supported browsers use the playback audio-session type so the iPhone Silent switch does not mute the music. Suspended/interrupted contexts can resume on a fresh tap, and a failed unlock offers a retry instead of hanging. On older iOS versions without AudioSession support, turn off Silent mode if needed and check media volume/Bluetooth output. Settings and scores are saved locally when storage is available. Blocked storage, including opaque-origin `sandbox="allow-scripts"` frames, does not prevent operation. The application makes no network requests for assets, scripts or audio.
 
 ## Static hosting / GitHub Pages
 
-The repository root is ready for static hosting. For GitHub Pages, select **Settings → Pages → Deploy from a branch → main → / (root)**. No workflow or asset paths need configuring. Enabling hosting is separate from uploading the source.
+The repository root is ready for static hosting. For GitHub Pages, select **Settings → Pages → Deploy from a branch → main → / (root)**. No workflow or asset paths need configuring. GitHub Pages is already enabled from `main` at the URL above.
 
 ## Source and building
 
@@ -47,7 +49,7 @@ Browser/audio tests are development-only. Install the pinned Playwright dependen
 
 ```sh
 npm install
-npx playwright install chromium
+npx playwright install chromium webkit
 npm run serve
 ```
 
@@ -57,6 +59,7 @@ In another terminal:
 npm test
 npm run test:audio
 npm run test:browser
+npm run test:mobile
 ```
 
 For an already installed Google Chrome, set `BROWSER_CHANNEL=chrome`. `TEST_URL` overrides the preview URL, `QA_DIR` sets the screenshot directory, and `PLAYWRIGHT_PATH` optionally selects an existing Playwright installation. Development dependencies are never bundled into the app.

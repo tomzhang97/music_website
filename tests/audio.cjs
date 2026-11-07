@@ -1,8 +1,8 @@
 /* Real browser audio rendering; no mocked AudioNodes. */
-const {chromium}=require(process.env.PLAYWRIGHT_PATH||'playwright');
+const {chromium,webkit}=require(process.env.PLAYWRIGHT_PATH||'playwright');
 const fs=require('node:fs');
 (async()=>{
- const browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
+ const browser=await (process.env.QA_ENGINE==='webkit'?webkit:chromium).launch({headless:true,...(process.env.QA_ENGINE!=='webkit'&&process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
  try{const page=await browser.newPage();await page.addScriptTag({content:fs.readFileSync('src/theory.js','utf8')});
  if(fs.existsSync('src/synth.js'))await page.addScriptTag({content:fs.readFileSync('src/synth.js','utf8')});
  const results=await page.evaluate(async()=>{

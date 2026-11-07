@@ -1,8 +1,10 @@
 /* Procedural, sample-free polyphonic instruments and studio signal path. */
 (function(global){
  'use strict';
+ function playbackSession(){try{if(global.navigator?.audioSession)global.navigator.audioSession.type='playback';}catch(_){} }
  class StudioSynth{
   constructor(context){
+   if(!context)playbackSession();
    const Audio=global.AudioContext||global.webkitAudioContext;
    if(!context&&!Audio)throw Error('Web Audio is unavailable in this browser. Try a current Chrome, Safari, Firefox or Edge.');
    this.ctx=context||new Audio();this.voices=new Set();this.instrument='grand';this.cache=new Map();
@@ -13,7 +15,21 @@
    for(let ch=0;ch<2;ch++){const d=ir.getChannelData(ch);for(let i=0;i<length;i++)d[i]=(Math.random()*2-1)*Math.exp(-i/(c.sampleRate*0.12))*0.4;}
    this.reverb.buffer=ir;this.bus.connect(dry).connect(this.compressor);this.bus.connect(this.reverb).connect(wet).connect(this.compressor);this.compressor.connect(this.master).connect(c.destination);
   }
-  async unlock(){if(this.ctx.state==='suspended')await this.ctx.resume();if(this.ctx.state==='closed')throw Error('Audio was closed. Reload the page to reconnect.');}
+  async unlock(){
+   playbackSession();
+   if(this.ctx.state==='closed')throw Error('Audio was closed. Tap Enable sound to reconnect.');
+   // Start/resume in the actual input handler, before crossing an await boundary.
+   const resume=this.ctx.state!=='running'?this.ctx.resume():Promise.resolve();
+   if(!this.warmed||this.ctx.state!=='running'){
+    const source=this.ctx.createBufferSource();source.buffer=this.ctx.createBuffer(1,1,this.ctx.sampleRate);source.connect(this.ctx.destination);source.onended=()=>source.disconnect();source.start(this.ctx.currentTime);this.warmed=true;
+   }
+   let timer;
+   try{
+    await Promise.race([resume,new Promise((resolve,reject)=>{timer=setTimeout(()=>this.ctx.state==='running'?resolve():reject(Error('Sound is waiting for permission. Tap Enable sound to retry.')),2500);})]);
+    if(this.ctx.state!=='running')throw Error('Sound is interrupted. Tap Enable sound to reconnect.');
+    this.unlockFailed=false;
+   }catch(error){this.unlockFailed=true;throw error;}finally{clearTimeout(timer);}
+  }
   volume(value){this.master.gain.setTargetAtTime(Math.max(0,Math.min(1,value)),this.ctx.currentTime,0.02);}
   stopAll(){const now=this.ctx.currentTime;for(const v of this.voices){v.gain.gain.cancelScheduledValues(now);v.gain.gain.setTargetAtTime(0,now,0.008);for(const s of v.sources)try{s.stop(now+0.035);}catch(_){} }this.voices.clear();}
   play(midi,when=this.ctx.currentTime,length=0.7,velocity=0.8,instrument=this.instrument){

@@ -58,3 +58,16 @@ test('placing transposed roots preserves pitch class instead of clipping at a vi
  const roots=[50,52,59,60].map(r=>T.placeRoot(r,[0,16,32]));
  assert.equal(roots[0],50);assert.equal(roots[1],52);assert.equal(roots[2],47);assert.equal(roots[3],48);
 });
+test('four configurable steps form a signed five-note phrase',()=>{
+ const steps=[{interval:2,direction:'up'},{interval:5,direction:'down'},{interval:10,direction:'up'},{interval:7,direction:'down'}];
+ assert.deepEqual(arr(T.sequenceOffsets?.(steps)||[]),[0,2,-3,7,0]);
+});
+test('sequence normalization keeps one to four valid intervals with no invalid pitches',()=>{
+ assert.deepEqual(Array.from(T.normalizeSequence?.(null)||[],s=>[s.interval,s.direction]),[[7,'up']]);
+ assert.equal(T.normalizeSequence?.(Array(8).fill({interval:4,direction:'up'}))?.length,4);
+ assert.deepEqual(Array.from(T.normalizeSequence?.([{interval:NaN,direction:'up'},{interval:7,direction:'invalid'},{interval:16,direction:'down'}])||[],s=>[s.interval,s.direction]),[[16,'down']]);
+});
+test('pair sequence advances in order and transposes only after the last configured pair',()=>{
+ const steps=[{interval:2,direction:'down'},{interval:7,direction:'up'},{interval:5,direction:'down'},{interval:12,direction:'up'}];
+ assert.deepEqual([0,1,2,3,4,5].map(i=>{const s=T.sequencePosition?.(steps,i);return s?[s.index,s.group,s.last]:null;}),[[0,0,false],[1,0,false],[2,0,false],[3,0,true],[0,1,false],[1,1,false]]);
+});
