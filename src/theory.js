@@ -103,11 +103,11 @@
  }
  class QuizSession {
   constructor(){this.total=0;this.correct=0;this.streak=0;this.best=0;this.byInterval={};this.targets=[];this.answers=[];this.done=false;}
-  begin(targets){this.targets=targets;this.answers=targets.map(()=>null);this.done=false;}
+  begin(targets,statIntervals=targets){this.targets=targets;this.statIntervals=statIntervals;this.answers=targets.map(()=>null);this.done=false;}
   answer(step,value){if(this.done||this.answers[step]!==null)return false;this.answers[step]=value;if(this.answers.some(x=>x===null))return false;
    this.done=true;this.total++;const correct=this.answers.every((x,i)=>x===this.targets[i]);
    this.correct+=Number(correct);this.streak=correct?this.streak+1:0;this.best=Math.max(this.best,this.streak);
-   this.targets.forEach((t,i)=>{const row=this.byInterval[t]||(this.byInterval[t]={total:0,correct:0});row.total++;row.correct+=Number(this.answers[i]===t);});return true;
+   this.statIntervals.forEach((interval,i)=>{const row=this.byInterval[interval]||(this.byInterval[interval]={total:0,correct:0});row.total++;row.correct+=Number(this.answers[i]===this.targets[i]);});return true;
   }
   get accuracy(){return this.total?Math.round(this.correct/this.total*100):0;}
  }

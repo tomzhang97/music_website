@@ -2,16 +2,30 @@
  'use strict';
  const T=IntervalCore,$=id=>document.getElementById(id),$$=s=>Array.from(document.querySelectorAll(s));
  const badges=['①','②','③','④','⑤'];
+ const quizDirections={up:'ascending',down:'descending',harmonic:'harmonic'};
+ const quizSounds=new Map();
+ for(const interval of T.intervals){
+  for(const direction of Object.keys(quizDirections)){
+   quizSounds.set(`${interval.st}:${direction}`,{interval,direction});
+  }
+ }
  const S={mode:'passive',size:2,quizSize:2,sequenceEnabled:false,sequence:[{interval:2,direction:'up'},{interval:7,direction:'up'}],pool:new Set(T.intervals.filter(x=>x.st<=12).map(x=>x.st)),looping:false,iteration:0,cycles:0,rawRoot:60,current:null,question:null,active:[],generation:0,raf:0,auto:0,session:new T.QuizSession(),synth:null};
- const settingIds=['voice','volume','view','ghosts','interval','selection-mode','direction','step2rule','step2interval','step2direction','reference','root-mode','root-note','repetitions','bpm','gap','phrasing','speech','blind','choice-count','auto-advance','quiz-up','quiz-down','quiz-harmonic','sequence-style','cell-connection','interval-pause'];
+ S.quizGroups={named:['2:up','1:up'],others:['6:up','4:up']};
+ const settingIds=['voice','volume','view','ghosts','interval','selection-mode','direction','step2rule','step2interval','step2direction','reference','root-mode','root-note','repetitions','bpm','gap','phrasing','speech','blind','choice-count','auto-advance','quiz-up','quiz-down','quiz-harmonic','quiz-others-source','sequence-style','cell-connection','interval-pause'];
  let toastTimer=0,lastCenter='',dragStart=null,dragMoved=false;
  function toast(message,error=false){clearTimeout(toastTimer);$('toast').textContent=message;$('toast').classList.toggle('error',error);$('toast').hidden=false;toastTimer=setTimeout(()=>$('toast').hidden=true,4200);}
- function save(){try{const settings={};settingIds.forEach(id=>settings[id]=$(id).type==='checkbox'?$(id).checked:$(id).value);localStorage.setItem('interval-01-v1',JSON.stringify({settings,size:S.size,quizSize:S.quizSize,sequenceEnabled:S.sequenceEnabled,sequence:S.sequence,pool:[...S.pool],stats:{total:S.session.total,correct:S.session.correct,streak:S.session.streak,best:S.session.best,byInterval:S.session.byInterval}}));}catch(_){} }
+ function save(){try{const settings={};settingIds.forEach(id=>settings[id]=$(id).type==='checkbox'?$(id).checked:$(id).value);localStorage.setItem('interval-01-v1',JSON.stringify({settings,size:S.size,quizSize:S.quizSize,quizGroups:S.quizGroups,sequenceEnabled:S.sequenceEnabled,sequence:S.sequence,pool:[...S.pool],stats:{total:S.session.total,correct:S.session.correct,streak:S.session.streak,best:S.session.best,byInterval:S.session.byInterval}}));}catch(_){} }
  function restore(){try{
   const data=JSON.parse(localStorage.getItem('interval-01-v1')||'null');if(!data||typeof data!=='object')return;
   settingIds.forEach(id=>{const el=$(id),v=data.settings?.[id];if(el.type==='checkbox'){if(typeof v==='boolean')el.checked=v;}else if(el.tagName==='SELECT'){if([...el.options].some(o=>o.value===String(v)))el.value=String(v);}else if(Number.isFinite(Number(v))&&v!==null){el.value=String(Math.max(Number(el.min),Math.min(Number(el.max),Number(v))));}});
   if(data.settings?.['sequence-style']==='pairs'&&data.settings?.['interval-pause']===undefined){const previousGap=Number(data.settings.gap);if(Number.isFinite(previousGap)&&previousGap>=0.2&&previousGap<=6)$('interval-pause').value=String(previousGap);}
   if(data.size===3)S.size=3;if(data.quizSize===3)S.quizSize=3;S.sequenceEnabled=data.sequenceEnabled===true;if(data.sequence)S.sequence=T.normalizeSequence(data.sequence);
+  if(data.quizSize==='grouped')S.quizSize='grouped';
+  for(const group of ['named','others']){
+   const saved=data.quizGroups?.[group];
+   if(Array.isArray(saved))S.quizGroups[group]=[...new Set(saved.filter(key=>quizSounds.has(key)))];
+  }
+  S.quizGroups.others=S.quizGroups.others.filter(key=>!S.quizGroups.named.includes(key));
   if(Array.isArray(data.pool)){const valid=data.pool.filter(n=>T.intervals.some(i=>i.st===n));if(valid.length)S.pool=new Set(valid);}
   const st=data.stats;if(st&&Number.isInteger(st.total)&&st.total>=0&&Number.isInteger(st.correct)&&st.correct>=0&&st.correct<=st.total){S.session.total=st.total;S.session.correct=st.correct;S.session.best=Number.isInteger(st.best)&&st.best>=0?st.best:0;S.session.streak=Number.isInteger(st.streak)&&st.streak>=0?st.streak:0;
    if(st.byInterval&&typeof st.byInterval==='object')T.intervals.forEach(i=>{const v=st.byInterval[i.st];if(v&&Number.isInteger(v.total)&&v.total>=0&&Number.isInteger(v.correct)&&v.correct>=0&&v.correct<=v.total)S.session.byInterval[i.st]={total:v.total,correct:v.correct};});
@@ -19,7 +33,7 @@
  }catch(_){} }
  function updateAudioStatus(synth){
   if(S.synth!==synth)return;
-  if(S.background?.url){const playing=!$('background-audio').paused;$('audio-led').classList.toggle('on',playing);$('audio-status').textContent=playing?'BACKGROUND AUDIO PLAYING':'LOCK-SCREEN TRACK READY';return;}
+  if(S.background?.url){const playing=S.background.started&&!$('background-audio').paused;$('audio-led').classList.toggle('on',playing);$('audio-status').textContent=playing?'BACKGROUND AUDIO PLAYING':'LOCK-SCREEN TRACK READY';return;}
   const running=synth.ctx.state==='running';$('audio-led').classList.toggle('on',running);
   $('audio-status').textContent=running?'AUDIO ENGINE CONNECTED':synth.ctx.state==='interrupted'?'AUDIO INTERRUPTED · TAP ENABLE SOUND':'TAP ENABLE SOUND';
   $('enable-audio').textContent=running?'Test sound':'Enable sound';
@@ -94,7 +108,7 @@
    bg.preparing=false;bg.track=track;bg.url=URL.createObjectURL(blob);const media=$('background-audio');media.src=bg.url;media.loop=true;media.load();
    try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(_){}
    $('background-controls').hidden=false;$('play-background').textContent='Play background loop';$('prepare-background').textContent='Prepare new track';$('background-card').setAttribute('aria-busy','false');
-   const seconds=Math.ceil(track.duration);bg.description=track.groups+' cycle'+(track.groups===1?'':'s')+' · '+Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0')+' track · repeats';$('background-status').textContent='Ready: '+bg.description+'. Tap Play, then lock the screen.';S.current=track.segments[0].cycle;renderLCD(S.current);drawInstruments(S.current.notes,[]);backgroundSession();backgroundPosition();if(S.synth)updateAudioStatus(S.synth);
+   const seconds=Math.ceil(track.duration);bg.description=track.groups+' cycle'+(track.groups===1?'':'s')+' · '+Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0')+' track · repeats';$('background-status').textContent='Ready: '+bg.description+'. Tap Play to start listening.';S.current=track.segments[0].cycle;renderLCD(S.current);drawInstruments(S.current.notes,[]);backgroundSession();backgroundPosition();updateAudioStatus(S.synth);
   }catch(error){if(token===S.generation)throw error;}
  }
  function getConfig(){return {size:S.size,interval:Number($('interval').value),direction:$('direction').value,step2rule:$('step2rule').value,step2interval:Number($('step2interval').value),step2direction:$('step2direction').value,reference:$('reference').value,pool:[...S.pool]};}
@@ -208,7 +222,17 @@
   const showPause=S.sequenceEnabled?S.sequence.length>1&&['disjoint','pairs'].includes($('sequence-style').value):S.size===3&&$('cell-connection').value==='disjoint';$('interval-pause-field').hidden=!showPause;$('interval-pause-value').textContent=Number($('interval-pause').value).toFixed(1)+' s';
   $('cell-settings').hidden=S.size!==3;$('rotation-help').hidden=$('selection-mode').value!=='rotate';$('interval').disabled=$('selection-mode').value==='rotate';$('custom-step2').hidden=['repeat','mirror'].includes($('step2rule').value);$('step2interval').disabled=$('step2rule').value==='random';
   $$('[data-size]').forEach(b=>{const active=b.dataset.size==='sequence'?S.sequenceEnabled:!S.sequenceEnabled&&Number(b.dataset.size)===S.size;b.classList.toggle('selected',active);b.setAttribute('aria-pressed',String(active));});
-  $$('[data-quiz-size]').forEach(b=>{const active=Number(b.dataset.quizSize)===S.quizSize;b.classList.toggle('selected',active);b.setAttribute('aria-pressed',String(active));});
+  $$('[data-quiz-size]').forEach(b=>{const active=b.dataset.quizSize===String(S.quizSize);b.classList.toggle('selected',active);b.setAttribute('aria-pressed',String(active));});
+  const grouped=S.quizSize==='grouped';
+  const randomOthers=$('quiz-others-source').value==='random';
+  $('grouped-quiz-settings').hidden=!grouped;
+  $('quiz-custom-others').hidden=randomOthers;
+  $('quiz-random-others').hidden=!randomOthers;
+  $('quiz-add-other').hidden=randomOthers;
+  $('quiz-directions').hidden=grouped&&!randomOthers;
+  $('quiz-directions-label').textContent=grouped?'Random Others directions':'Allowed directions';
+  $('quiz-choice-count').hidden=grouped;
+  $('harmonic').hidden=S.question?Boolean(S.question.group):grouped;
   $('instruments').className='instruments '+($('view').value==='piano'?'piano-only':$('view').value==='guitar'?'guitar-only':'');
   $('bpm-value').textContent=$('bpm').value;$('beat-ms').textContent=Math.round(60000/Number($('bpm').value))+' ms / beat';$('gap-value').textContent=Number($('gap').value).toFixed(1)+' s';$('volume-value').textContent=$('volume').value+'%';
   $$('[data-bpm]').forEach(b=>b.classList.toggle('selected',b.dataset.bpm===$('bpm').value));
@@ -223,35 +247,136 @@
   const presets=poolPresets();$$('[data-pool]').forEach(b=>b.classList.toggle('selected',presets[b.dataset.pool].length===S.pool.size&&presets[b.dataset.pool].every(x=>S.pool.has(x))));
  }
  function poolPresets(){return {all:[1,2,3,4,5,6,7,8,9,10,11,12],major:[2,4,5,7,9,11,12],pillars:[4,5,7,12],small:[1,2,3,4,5],wide:[7,8,9,10,11,12],consonant:[3,4,5,7,8,9,12],dissonant:[1,2,6,10,11]};}
+ function quizSoundName(key){
+  if(key==='others')return 'Others';
+  const {interval,direction}=quizSounds.get(key);
+  return `${interval.name} ${quizDirections[direction]}`;
+ }
+ function renderQuizGroups(){
+  for(const [group,id,heading] of [['named','quiz-named-sounds','Named answers'],['others','quiz-other-sounds','Others']]){
+   $(id).innerHTML=S.quizGroups[group].map(key=>{
+    const name=quizSoundName(key);
+    return `<li><span>${name}</span><button type="button" data-quiz-remove="${group}" data-sound="${key}" aria-label="Remove ${name} from ${heading}">×</button></li>`;
+   }).join('')||'<li class="hint">No sounds selected.</li>';
+  }
+ }
+ function addQuizSound(group){
+  const key=`${$('quiz-sound-interval').value}:${$('quiz-sound-direction').value}`;
+  if(S.quizGroups.named.includes(key)||S.quizGroups.others.includes(key)){
+   toast(`${quizSoundName(key)} is already in a group.`);
+   return;
+  }
+  S.quizGroups[group].push(key);
+  renderQuizGroups();
+  save();
+ }
  function renderStats(){
   $('score').textContent=S.session.correct+' / '+S.session.total;$('accuracy').innerHTML=(S.session.total?S.session.accuracy:'—')+'<small>%</small>';$('streak').textContent=S.session.streak;$('best').textContent=S.session.best;
   const intervals=T.intervals.filter(x=>S.pool.has(x.st)||S.session.byInterval[x.st]);$('interval-progress').innerHTML=intervals.map(i=>{const row=S.session.byInterval[i.st],pct=row?.total?Math.round(row.correct/row.total*100):0;return `<div class="progress-row"><div><span>${i.short}</span><span>${row?.total?pct+'% · '+row.correct+'/'+row.total:'—'}</span></div><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></div>`;}).join('');
  }
  async function newQuestion(){
-  stop();await audio();const directions=['up','down','harmonic'].filter(d=>$('quiz-'+d).checked);if(!directions.length){toast('Enable at least one quiz direction.',true);return;}
-  const dir=T.pick(directions),pool=[...S.pool],first=T.pick(pool),second=T.pick(pool),c={size:S.quizSize,interval:first,direction:dir,step2rule:'fixed',step2interval:second,step2direction:dir==='harmonic'?'up':T.pick(directions.filter(d=>d!=='harmonic').length?directions.filter(d=>d!=='harmonic'):['up']),reference:'chain'};
+  stop();
+  const token=S.generation;
+  const directions=Object.keys(quizDirections).filter(direction=>$('quiz-'+direction).checked);
+  const pool=[...S.pool];
+  let c,group;
+  if(S.quizSize==='grouped'){
+   const named=S.quizGroups.named;
+   const random=$('quiz-others-source').value==='random';
+   const candidates=random?pool.flatMap(interval=>directions.map(direction=>`${interval}:${direction}`)):S.quizGroups.others;
+   const others=candidates.filter(key=>!named.includes(key));
+   if(!named.length){toast('Add at least one named answer.',true);return;}
+   if(!others.length){
+    toast(random?'No sounds are available for Others. Enable more intervals or directions.':'Add at least one sound to Others.',true);
+    return;
+   }
+   const choices=[...named,'others'];
+   const target=T.pick(choices);
+   const key=target==='others'?T.pick(others):target;
+   const {interval,direction}=quizSounds.get(key);
+   c={size:2,interval:interval.st,direction};
+   group={choices:T.shuffle(choices),target,key,others};
+  }else{
+   if(!directions.length){toast('Enable at least one quiz direction.',true);return;}
+   const direction=T.pick(directions);
+   const melodic=directions.filter(value=>value!=='harmonic');
+   c={size:S.quizSize,interval:T.pick(pool),direction,step2rule:'fixed',step2interval:T.pick(pool),
+    step2direction:direction==='harmonic'?'up':T.pick(melodic),reference:'chain'};
+  }
+  await audio();
+  if(token!==S.generation)return;
   const offsets=T.cellOffsets(c),root=fitVisible(T.pick([50,52,53,55,57,59,60,62,64]),offsets);
-  S.question={notes:offsets.map(o=>root+o),steps:offsets.slice(1).map((o,i)=>o-offsets[i]),harmonic:dir==='harmonic',config:c};S.current=S.question;
-  S.session.begin(S.question.steps.map(Math.abs));$('feedback').hidden=true;$('new-question').textContent='Next question →';$('replay').disabled=false;$('harmonic').disabled=false;
-  $('question-label').textContent='QUESTION '+String(S.session.total+1).padStart(2,'0')+' / '+(S.quizSize===3?'3-NOTE CELL':'2-NOTE INTERVAL');$('quiz-title').textContent=S.quizSize===3?'Two steps. One musical thought.':'What interval do you hear?';$('quiz-instruction').textContent=dir==='harmonic'?'The notes sound together. Identify the distance'+(S.quizSize===3?' in each step.':'.'):'Listen to the '+(S.quizSize===3?'three notes and identify each step.':dir==='down'?'descending pair.':'ascending pair.');
+  S.question={notes:offsets.map(o=>root+o),steps:offsets.slice(1).map((o,i)=>o-offsets[i]),harmonic:c.direction==='harmonic',config:c,group};
+  S.current=S.question;
+  const intervals=S.question.steps.map(Math.abs);
+  S.session.begin(group?[group.target]:intervals,intervals);
+  $('feedback').hidden=true;$('new-question').textContent='Next question →';$('replay').disabled=false;
+  $('harmonic').disabled=false;$('harmonic').hidden=Boolean(group);
+  const cell=c.size===3;
+  const format=group?'NAMED + OTHERS':cell?'3-NOTE CELL':'2-NOTE INTERVAL';
+  $('question-label').textContent='QUESTION '+String(S.session.total+1).padStart(2,'0')+' / '+format;
+  $('quiz-title').textContent=cell?'Two steps. One musical thought.':'What interval do you hear?';
+  if(group)$('quiz-instruction').textContent='Listen for both the interval and its direction. Choose a named sound or Others.';
+  else if(c.direction==='harmonic')$('quiz-instruction').textContent=cell?'The notes sound together. Identify the distance in each step.':'The notes sound together. Identify the distance.';
+  else $('quiz-instruction').textContent=cell?'Listen to the three notes and identify each step.':`Listen to the ${quizDirections[c.direction]} pair.`;
   renderChoices();await replayQuestion();
  }
  function renderChoices(){
-  const q=S.question;if(!q)return;const count=Number($('choice-count').value);q.options=q.steps.map(s=>T.choices([...S.pool],Math.abs(s),count));
-  $('quiz-choices').classList.toggle('cell',q.steps.length===2);$('quiz-choices').innerHTML=q.options.map((options,step)=>`<div class="choice-column"><h3 class="choice-heading">${q.steps.length===2?'STEP '+(step+1)+' · NOTE '+(step+1)+' → '+(step+2):'NAME THE INTERVAL'}</h3><div class="choice-grid">${options.map((value,i)=>`<button class="choice" data-choice="${value}" data-step="${step}"><span><b>${T.info(value).short}</b><span class="choice-name">${T.info(value).name}</span></span><kbd>${i<9?i+1:'·'}</kbd></button>`).join('')}</div></div>`).join('');
+  const q=S.question;if(!q)return;
+  const count=Number($('choice-count').value);
+  q.options=q.group?[q.group.choices]:q.steps.map(s=>T.choices([...S.pool],Math.abs(s),count));
+  $('quiz-choices').classList.toggle('cell',q.steps.length===2);
+  $('quiz-choices').innerHTML=q.options.map((options,step)=>{
+   const heading=q.steps.length===2?`STEP ${step+1} · NOTE ${step+1} → ${step+2}`:'NAME THE INTERVAL';
+   const buttons=options.map((value,i)=>{
+    const content=q.group?`<b>${quizSoundName(value)}</b>`:`<b>${T.info(value).short}</b><span class="choice-name">${T.info(value).name}</span>`;
+    return `<button class="choice" data-choice="${value}" data-step="${step}"><span>${content}</span><kbd>${i<9?i+1:'·'}</kbd></button>`;
+   }).join('');
+   return `<div class="choice-column"><h3 class="choice-heading">${heading}</h3><div class="choice-grid">${buttons}</div></div>`;
+  }).join('');
  }
  async function replayQuestion(harmonic=false){if(!S.question){await newQuestion();return;}clearTimeout(S.auto);S.auto=0;const token=cancelPlayback();await audio();if(token!==S.generation)return;S.current=S.question;playScheduled(S.question.notes,T.phrase(S.question.notes,Number($('bpm').value),'pure',harmonic||S.question.harmonic),token);}
- async function answer(step,value){
-  if(!S.question)return;
-  if(S.session.done){clearTimeout(S.auto);S.auto=0;const root=S.question.notes[step],signed=value*(S.question.steps[step]<0?-1:1);const token=cancelPlayback();await audio();if(token!==S.generation)return;const notes=[root,root+signed];S.current={notes,steps:[signed]};playScheduled(notes,T.phrase(notes,Number($('bpm').value),'pure',S.question.harmonic),token);toast('Comparing '+T.info(value).name+' from '+T.noteName(root)+'.');return;}
+ async function answer(step,key){
+  const q=S.question;if(!q)return;
+  const value=q.group?key:Number(key);
+  if(!q.options[step]?.includes(value))return;
+  if(S.session.done){
+   clearTimeout(S.auto);S.auto=0;
+   const root=q.notes[step];
+   let signed,harmonic,label;
+   if(q.group){
+    let soundKey=value;
+    if(value==='others')soundKey=q.group.target==='others'?q.group.key:T.pick(q.group.others);
+    const {interval,direction}=quizSounds.get(soundKey);
+    signed=interval.st*(direction==='down'?-1:1);
+    harmonic=direction==='harmonic';
+    label=quizSoundName(soundKey);
+   }else{
+    signed=value*(q.steps[step]<0?-1:1);
+    harmonic=q.harmonic;
+    label=T.info(value).name;
+   }
+   const token=cancelPlayback();await audio();if(token!==S.generation)return;
+   const notes=[root,root+signed];S.current={notes,steps:[signed]};
+   playScheduled(notes,T.phrase(notes,Number($('bpm').value),'pure',harmonic),token);
+   toast('Comparing '+label+' from '+T.noteName(root)+'.');
+   return;
+  }
   if(S.session.answers[step]!==null)return;
-  const finished=S.session.answer(step,value);$$(`.choice[data-step="${step}"]`).forEach(b=>{b.classList.toggle('chosen',Number(b.dataset.choice)===value);b.setAttribute('aria-pressed',String(Number(b.dataset.choice)===value));});
+  const finished=S.session.answer(step,value);$$(`.choice[data-step="${step}"]`).forEach(b=>{const selected=b.dataset.choice===String(value);b.classList.toggle('chosen',selected);b.setAttribute('aria-pressed',String(selected));});
   if(!finished){$('quiz-instruction').textContent=`Step ${step+1} locked in. Now identify Step ${step===0?2:1}.`;return;}
   const correct=S.session.answers.every((a,i)=>a===S.session.targets[i]);
   cancelPlayback();S.current=S.question;drawInstruments(S.question.notes,[]);
-  $$('.choice').forEach(b=>{const col=Number(b.dataset.step),v=Number(b.dataset.choice);b.classList.remove('chosen');b.classList.toggle('correct',v===S.session.targets[col]);b.classList.toggle('wrong',v===S.session.answers[col]&&v!==S.session.targets[col]);});
+  $$('.choice').forEach(b=>{const col=Number(b.dataset.step),v=b.dataset.choice;const right=v===String(S.session.targets[col]);b.classList.remove('chosen');b.classList.toggle('correct',right);b.classList.toggle('wrong',v===String(S.session.answers[col])&&!right);});
   $('feedback').className='feedback'+(correct?'':' wrong-feedback');$('feedback').hidden=false;
-  $('feedback').innerHTML=`<h3>${correct?'✓ You heard it.':'Keep that sound in mind.'}</h3><p>${correct?'A little more connection, every time.':'Your answer: '+S.session.answers.map(a=>T.info(a).name).join(' + ')+'. The interval was '+S.question.steps.map(s=>T.info(s).name).join(' + ')+'.'}</p><div class="feedback-notes">${S.question.notes.map(T.noteName).join(' → ')}</div><p>${S.question.steps.map(s=>`${s>0?'+':''}${s} semitones · ${Math.pow(2,Math.abs(s)/12).toFixed(4)}× in 12-TET · ${T.info(s).ratio} reference ratio<br>Song cue: ${s<0?T.info(s).down:T.info(s).up}`).join('<br>')}</p><p>Tap any answer to compare it from the same starting note.</p><button id="handoff">∞ Loop this ${S.question.steps.length===2?'cell':'interval'} in Passive Listening ↗</button>`;
+  let explanation='A little more connection, every time.';
+  if(q.group){
+   const category=q.group.target==='others'?' (Others)':'';
+   explanation=`You chose ${quizSoundName(value)}. The sound was ${quizSoundName(q.group.key)}${category}.`;
+  }else if(!correct){
+   explanation=`Your answer was ${S.session.answers.map(a=>T.info(a).name).join(' + ')}. The interval was ${q.steps.map(s=>T.info(s).name).join(' + ')}.`;
+  }
+  $('feedback').innerHTML=`<h3>${correct?'✓ You heard it.':'Keep that sound in mind.'}</h3><p>${explanation}</p><div class="feedback-notes">${q.notes.map(T.noteName).join(' → ')}</div><p>${q.steps.map(s=>`${s>0?'+':''}${s} semitones · ${Math.pow(2,Math.abs(s)/12).toFixed(4)}× in 12-TET · ${T.info(s).ratio} reference ratio<br>Song cue: ${s<0?T.info(s).down:T.info(s).up}`).join('<br>')}</p><p>Tap any answer to compare it from the same starting note.</p><button id="handoff">∞ Loop this ${q.steps.length===2?'cell':'interval'} in Passive Listening ↗</button>`;
   $('handoff').addEventListener('click',safe(handoff));$('quiz-title').textContent=correct?'That’s the connection.':'One step closer.';$('quiz-instruction').textContent='The notes are revealed. Compare the sounds, or try the next question.';renderStats();save();
   if(correct&&$('auto-advance').checked)S.auto=setTimeout(safe(newQuestion),2000);
  }
@@ -262,18 +387,31 @@
   $('phrasing').value='pure';$('cell-connection').value='continuous';refreshControls();setMode('passive');save();await startLoop();$('passive-tab').scrollIntoView({behavior:'smooth',block:'start'});
  }
  function initialize(){
-  for(const id of ['interval','step2interval'])$(id).innerHTML=T.intervals.map(i=>`<option value="${i.st}">${i.short} · ${i.name}</option>`).join('');$('interval').value='7';$('step2interval').value='10';
+  for(const id of ['interval','step2interval','quiz-sound-interval'])$(id).innerHTML=T.intervals.map(i=>`<option value="${i.st}">${i.short} · ${i.name}</option>`).join('');$('interval').value='7';$('step2interval').value='10';
   for(let m=48;m<=72;m++)$('root-note').add(new Option(T.noteName(m),m));$('root-note').value='60';
   restore();if(!['quiz-up','quiz-down','quiz-harmonic'].some(id=>$(id).checked))$('quiz-up').checked=true;
-  buildInstruments();renderSequence();refreshControls();renderPool();renderStats();preview();
+  buildInstruments();renderSequence();renderQuizGroups();refreshControls();renderPool();renderStats();preview();
   const unlockFromGesture=e=>{if(S.background||e.target.closest?.('#background-card'))return;if(e.type==='keydown'&&(e.repeat||e.ctrlKey||e.metaKey||e.altKey||![' ','Enter','r','R'].includes(e.key)))return;audio().catch(()=>{});};
   for(const event of ['touchend','click','keydown'])document.addEventListener(event,unlockFromGesture,{capture:true,passive:true});
   on('enable-audio','click',async()=>{stop();const token=S.generation;const synth=await audio(true);if(token!==S.generation)return;if(Number($('volume').value)===0){toast('Master volume is muted. Raise it to hear the sound test.');return;}synth.play(69,undefined,0.6,0.7,$('voice').value);toast('Sound test: A4 · 440 Hz.');});
   on('loop','click',async()=>{if(S.looping)stop();else await startLoop();});on('once','click',async()=>{stop();S.iteration=0;await runCycle(true);});
   on('prepare-background','click',prepareBackground);on('stop-background','click',stop);
   on('play-background','click',()=>{const media=$('background-audio');if(!S.background?.url)return;if(media.paused)return playBackground();media.pause();});
-  on('background-audio','play',()=>{if(!S.background?.url)return;S.background.started=true;S.looping=true;loopButton();$('play-background').textContent='Pause background loop';$('background-status').textContent='Playing: '+S.background.description+'. You can lock the screen or switch apps.';if(S.synth?.ctx.state==='running')S.synth.ctx.suspend().catch(()=>{});backgroundSession();animateBackground();if(S.synth)updateAudioStatus(S.synth);else{$('audio-led').classList.add('on');$('audio-status').textContent='BACKGROUND AUDIO PLAYING';}});
-  on('background-audio','pause',()=>{if(!S.background?.url)return;S.looping=false;loopButton();cancelAnimationFrame(S.raf);$('play-background').textContent='Play background loop';$('background-status').textContent='Paused. Tap Play here or use the lock-screen media controls to resume.';backgroundPosition();syncBackground();if(S.synth)updateAudioStatus(S.synth);});
+  on('background-audio','play',()=>{
+   if(!S.background?.url||$('background-audio').paused)return;
+   S.looping=true;
+   loopButton();
+   $('play-background').textContent='Pause background loop';
+   $('background-status').textContent='Starting audio…';
+  });
+  on('background-audio','playing',()=>{
+   if(!S.background?.url||$('background-audio').paused)return;
+   S.background.started=true;
+   $('background-status').textContent='Playing: '+S.background.description+'. You can lock the screen or switch apps.';
+   if(S.synth?.ctx.state==='running')S.synth.ctx.suspend().catch(()=>{});
+   backgroundSession();animateBackground();updateAudioStatus(S.synth);
+  });
+  on('background-audio','pause',()=>{if(!S.background?.url)return;S.looping=false;loopButton();cancelAnimationFrame(S.raf);$('play-background').textContent='Play background loop';$('background-status').textContent='Paused. Tap Play here or use the lock-screen media controls to resume.';backgroundPosition();syncBackground();updateAudioStatus(S.synth);});
   for(const event of ['timeupdate','loadedmetadata','seeked'])on('background-audio',event,()=>{backgroundPosition();syncBackground();});
   on('background-audio','error',()=>{if(S.background?.url){stop();toast('The prepared track could not play. Prepare it again and tap Play.',true);}});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.background?.url){syncBackground();if(!$('background-audio').paused)animateBackground();}});
@@ -294,7 +432,17 @@
   on('add-interval','click',async()=>{if(S.sequence.length>=4)return;S.sequence.push({interval:7,direction:'up'});renderSequence();await sequenceChanged();});
   $('sequence-list').addEventListener('change',safe(async e=>{const input=e.target;if(!input.dataset.sequenceField)return;const index=Number(input.dataset.sequenceIndex);S.sequence[index][input.dataset.sequenceField]=input.dataset.sequenceField==='interval'?Number(input.value):input.value;await sequenceChanged();}));
   $('sequence-list').addEventListener('click',safe(async e=>{const button=e.target.closest('[data-remove-sequence]');if(!button||S.sequence.length<=1)return;S.sequence.splice(Number(button.dataset.removeSequence),1);renderSequence();await sequenceChanged();}));
-  $$('[data-quiz-size]').forEach(b=>b.addEventListener('click',()=>{S.quizSize=Number(b.dataset.quizSize);refreshControls();save();}));
+  $$('[data-quiz-size]').forEach(b=>b.addEventListener('click',()=>{S.quizSize=b.dataset.quizSize==='grouped'?'grouped':Number(b.dataset.quizSize);refreshControls();save();}));
+  on('quiz-add-named','click',()=>addQuizSound('named'));
+  on('quiz-add-other','click',()=>addQuizSound('others'));
+  on('grouped-quiz-settings','click',e=>{
+   const button=e.target.closest('[data-quiz-remove]');
+   if(!button)return;
+   const {quizRemove:group,sound}=button.dataset;
+   S.quizGroups[group]=S.quizGroups[group].filter(key=>key!==sound);
+   renderQuizGroups();
+   save();
+  });
   $$('[data-bpm]').forEach(b=>b.addEventListener('click',safe(async()=>{invalidateBackground();$('bpm').value=b.dataset.bpm;refreshControls();save();if(S.looping)await runCycle();})));
   $$('[data-drill]').forEach(b=>b.addEventListener('click',safe(async()=>{
    if(S.mode!=='passive')setMode('passive');S.sequenceEnabled=false;$('selection-mode').value='lock';
@@ -305,8 +453,8 @@
   $$('[data-pool]').forEach(b=>b.addEventListener('click',()=>{invalidateBackground();S.pool=new Set(poolPresets()[b.dataset.pool]);renderPool();renderStats();save();}));
   $('pool').addEventListener('click',e=>{const b=e.target.closest('[data-pool-note]');if(!b)return;const n=Number(b.dataset.poolNote);if(S.pool.has(n)){if(S.pool.size===1){toast('Keep at least one interval in your pool.');return;}invalidateBackground();S.pool.delete(n);}else{invalidateBackground();S.pool.add(n);}renderPool();renderStats();save();});
   on('new-question','click',newQuestion);on('replay','click',()=>replayQuestion());on('harmonic','click',()=>replayQuestion(true));
-  $('quiz-choices').addEventListener('click',safe(async e=>{const b=e.target.closest('[data-choice]');if(b)await answer(Number(b.dataset.step),Number(b.dataset.choice));}));
-  on('reset-score','click',()=>{stop();S.session=new T.QuizSession();S.question=null;S.current={notes:[],steps:[]};$('quiz-choices').innerHTML='';$('feedback').hidden=true;$('new-question').textContent='▶ Start ear quiz';$('replay').disabled=true;$('harmonic').disabled=true;$('quiz-title').textContent='A fresh pair of ears.';$('question-label').textContent='YOUR NEXT SMALL BREAKTHROUGH';$('quiz-instruction').textContent='Listen to the notes, then name the distance between them.';drawInstruments([],[]);renderStats();save();toast('Scores reset. Your practice settings are saved.');});
+  $('quiz-choices').addEventListener('click',safe(async e=>{const b=e.target.closest('[data-choice]');if(b)await answer(Number(b.dataset.step),b.dataset.choice);}));
+  on('reset-score','click',()=>{stop();S.session=new T.QuizSession();S.question=null;S.current={notes:[],steps:[]};$('quiz-choices').innerHTML='';$('feedback').hidden=true;$('new-question').textContent='▶ Start ear quiz';$('replay').disabled=true;$('harmonic').disabled=true;$('quiz-title').textContent='A fresh pair of ears.';$('question-label').textContent='YOUR NEXT SMALL BREAKTHROUGH';$('quiz-instruction').textContent='Listen to the notes, then name the distance between them.';drawInstruments([],[]);refreshControls();renderStats();save();toast('Scores reset. Your practice settings are saved.');});
   on('help-button','click',()=>$('help').showModal());on('close-help','click',()=>$('help').close());on('help-done','click',()=>$('help').close());
   document.addEventListener('keydown',safe(async e=>{
    if(e.key==='Escape'){stop();return;}if(e.repeat||e.ctrlKey||e.metaKey||e.altKey||$('help').open||e.target.matches('input,select,textarea,[contenteditable="true"]'))return;
@@ -315,7 +463,7 @@
    else if(S.mode==='quiz'){
     if(e.code==='Space'||e.key.toLowerCase()==='r'){e.preventDefault();await replayQuestion();}
     else if(e.key==='Enter'){e.preventDefault();await newQuestion();}
-    else if(/^[1-9]$/.test(e.key)&&S.question&&!S.session.done){const step=S.session.answers.findIndex(a=>a===null),buttons=$$(`.choice[data-step="${step}"]`),b=buttons[Number(e.key)-1];if(b)await answer(step,Number(b.dataset.choice));}
+    else if(/^[1-9]$/.test(e.key)&&S.question&&!S.session.done){const step=S.session.answers.findIndex(a=>a===null),buttons=$$(`.choice[data-step="${step}"]`),b=buttons[Number(e.key)-1];if(b)await answer(step,b.dataset.choice);}
    }
   }));
   window.addEventListener('pagehide',()=>{if(!S.background)stop();save();});

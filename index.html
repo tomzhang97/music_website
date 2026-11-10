@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="app-version" content="1.3.0">
+<meta name="app-version" content="1.4.0">
 <meta name="theme-color" content="#141817">
 <meta name="description" content="An offline interval ear training studio. Eleven synthesized instruments, interactive piano and guitar, infinite listening drills and adaptive interval quizzes.">
 <title>Interval / 01 — Ear Training Studio</title>
@@ -28,6 +28,15 @@ input[type=range],.master-field input{height:44px}
 
 .sequence-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}.sequence-heading .secondary{font-size:10px;padding:8px 12px}.sequence-row{display:grid;grid-template-columns:22px minmax(0,1fr) 90px 44px;align-items:center;gap:7px;margin-bottom:10px;padding:8px 0;border-bottom:1px solid var(--line)}.sequence-row>div{min-width:0}.sequence-row select{font-size:11px;padding-left:8px;padding-right:20px}.sequence-remove{width:44px;min-height:44px;font-size:20px;background:transparent;box-shadow:none}.sequence-row.playing{background:#edbb700b;border-color:var(--amber)}.sequence-row.playing>.section-number{color:var(--amber);border-color:var(--amber)}.sequence-lcd .lcd-title-row{align-items:start}.sequence-lcd #interval-title{font-size:24px;line-height:1.4;overflow-wrap:anywhere}.sequence-lcd .interval-symbol{font-size:30px}.sequence-lcd .note-sequence{gap:8px}.sequence-lcd .note-chip{font-size:13px;padding:7px 8px}.sequence-lcd .lcd-bottom{align-items:end}.sequence-lcd #ratio-readout{line-height:1.9}.sequence-lcd .lcd-bottom #song-reference{max-width:43%}@media(max-width:760px){.sequence-row{grid-template-columns:18px minmax(0,1fr) 78px 44px;gap:5px}.sequence-row select{font-size:10px;padding-left:6px;padding-right:15px}.sequence-lcd #interval-title{font-size:21px}.sequence-lcd .note-sequence{gap:6px}.sequence-lcd .note-chip{font-size:12px;padding:7px}.sequence-lcd .lcd-bottom{font-size:7px}.sequence-lcd .interval-symbol{font-size:27px}.segmented button{padding-left:5px;padding-right:5px}}
 :where(.background-card){margin-bottom:20px}.background-card h3{font:600 11px var(--mono);letter-spacing:.08em;margin:0 0 10px}.background-card .hint{line-height:1.65;margin:12px 0}.background-card audio{display:block;width:100%;min-width:0;margin-top:16px}.background-buttons{display:flex;gap:10px;flex-wrap:wrap}.background-buttons button{flex:1;min-width:120px}
+
+#grouped-quiz-settings h3 { margin: 16px 0 7px; font-size: 12px; }
+#grouped-quiz-settings .two-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#quiz-random-others { margin-bottom: 12px; }
+.quiz-sound-list { margin: 0 0 16px; padding: 0; list-style: none; }
+.quiz-sound-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+.quiz-sound-list li button { flex: 0 0 44px; padding: 0; }
+.quiz-sound-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.quiz-sound-actions button { flex: 1 1 120px; padding: 8px; }
 </style>
 </head>
 <body>
@@ -51,7 +60,7 @@ input[type=range],.master-field input{height:44px}
  <div class="passive-layout"><div class="listening-main">
  <section class="lcd" aria-labelledby="interval-title"><div class="lcd-top"><span><i id="transport-led" class="led"></i> <span id="transport-status">STANDBY</span></span><span>CYCLE <b id="cycle-count">0000</b></span></div><div class="lcd-title-row"><div><p id="interval-direction" class="eyebrow">ASCENDING INTERVAL ↑</p><h2 id="interval-title">Perfect fifth</h2></div><div id="interval-symbol" class="interval-symbol">P5<span>+7 SEMITONES</span></div></div><div class="note-sequence" id="note-sequence"></div><div class="lcd-bottom"><span id="ratio-readout">1.4983× <small>12-TET</small> · 3:2 <small>REFERENCE</small></span><span id="song-reference">↗ Twinkle, Twinkle, Little Star</span></div><div class="breath-track"><div id="breath-progress"></div></div></section>
  <div class="transport"><button id="loop" class="primary"><span class="play-icon">▶</span><span id="loop-label">Start infinite loop</span><kbd>SPACE</kbd></button><button id="once" class="secondary">▷ <span>Play cycle once</span></button></div>
- <section id="background-card" class="panel background-card" aria-labelledby="background-title"><div class="settings-body"><h3 id="background-title">LISTEN WITH YOUR SCREEN LOCKED</h3><p class="hint">Prepare your current drill, then tap Play below before locking your iPhone or switching apps.</p><button id="prepare-background" class="secondary" type="button">Prepare lock-screen track</button><p id="background-status" class="hint" role="status">The prepared track repeats automatically. Prepare again for fresh random choices.</p><div id="background-controls" hidden><div class="background-buttons"><button id="play-background" class="primary" type="button">Play background loop</button><button id="stop-background" class="secondary" type="button">Stop background loop</button></div><audio id="background-audio" controls loop preload="auto" aria-label="Lock-screen listening track"></audio></div><p class="hint">Music only. Set volume and your drill before preparing; changing them clears the track. Spoken announcements use the interactive player above.</p></div></section>
+ <section id="background-card" class="panel background-card" aria-labelledby="background-title"><div class="settings-body"><h3 id="background-title">LISTEN WITH YOUR SCREEN LOCKED</h3><p class="hint">Prepare your current drill and tap Play. Once audio starts, you can lock your phone or switch apps.</p><button id="prepare-background" class="secondary" type="button">Prepare lock-screen track</button><p id="background-status" class="hint" role="status">The prepared track repeats automatically. Prepare again for fresh random choices.</p><div id="background-controls" hidden><div class="background-buttons"><button id="play-background" class="primary" type="button">Play background loop</button><button id="stop-background" class="secondary" type="button">Stop background loop</button></div><audio id="background-audio" controls loop preload="auto" aria-label="Lock-screen listening track"></audio></div><p class="hint">Music only. Set volume and your drill before preparing; changing them clears the track. Spoken announcements use the interactive player above.</p></div></section>
  <section class="presets"><div class="small-heading"><h3>SPOTLIGHT DRILLS</h3><span>ONE CLICK TO TUNE IN</span></div><div class="drill-grid"><button data-drill="2,-1">M2 <span>Descending ↓</span></button><button data-drill="10,1">m7 <span>Ascending ↑</span></button><button data-drill="5,1">P4 <span>Ascending ↑</span></button><button data-drill="7,-1">P5 <span>Descending ↓</span></button><button data-drill="6,1">TT <span>Ascending ↑</span></button><button data-drill="cell">3-note <span>M2 ↓ + m7 ↑</span></button></div></section>
  <section class="panel settings-panel"><div class="panel-heading"><h2><span class="section-number">03</span> PACE & PHRASING</h2><span class="tiny">MAKE ROOM TO LISTEN</span></div><div class="settings-body"><div class="tempo-heading"><label for="bpm">Speed</label><div><output id="bpm-value">76</output><span>BPM</span></div></div><input type="range" id="bpm" min="40" max="200" value="76"><div class="range-scale"><span>40 BPM</span><output id="beat-ms">789 ms / beat</output><span>200 BPM</span></div><div class="tempo-chips"><button data-bpm="56">Lento <b>56</b></button><button data-bpm="76" class="selected">Andante <b>76</b></button><button data-bpm="100">Moderato <b>100</b></button><button data-bpm="132">Allegro <b>132</b></button><button data-bpm="168">Presto <b>168</b></button></div><div class="two-fields"><div class="field"><label for="phrasing">Cadence style</label><select id="phrasing"><option value="pure">Pure melodic</option><option value="lock">Melodic + harmonic lock</option><option value="cluster">Cluster first → unpack melodically</option><option value="echo">Call & soft echo</option><option value="swing">Dotted swing cadence</option></select></div><div class="field"><label for="gap">Breath between cycles <output id="gap-value">2.0 s</output></label><input id="gap" type="range" min="0.3" max="6" step="0.1" value="2"></div></div></div></section>
  </div><aside class="listening-settings"><section class="panel settings-panel"><div class="panel-heading"><h2><span class="section-number">02</span> BUILD YOUR INTERVAL</h2></div><div class="settings-body"><div class="segmented" role="group" aria-label="Passive note count"><button data-size="2" class="selected" aria-pressed="true">2-note interval</button><button data-size="3" aria-pressed="false">3-note cell</button><button data-size="sequence" aria-pressed="false">1–4 intervals</button></div><div id="classic-settings"><div class="two-fields"><div class="field"><label for="selection-mode">Selection</label><select id="selection-mode"><option value="lock">Single interval lock</option><option value="rotate">Multi-interval rotation</option></select></div><div class="field"><label for="direction">Direction</label><select id="direction"><option value="up">Ascending ↑</option><option value="down">Descending ↓</option><option value="harmonic">Harmonic ⇅</option><option value="alternate">Alternate ↑ / ↓</option></select></div></div><div class="field"><label for="interval">Step 1 <span class="muted">NOTE 1 → NOTE 2</span></label><select id="interval"></select></div><div id="rotation-help" class="hint" hidden>Rotates through the active pool below. Step 1 supplies the first interval.</div>
@@ -59,9 +68,19 @@ input[type=range],.master-field input{height:44px}
  </div><div id="sequence-settings" hidden><div class="field"><label for="sequence-style">Sequence playback</label><select id="sequence-style"><option value="phrase">Continuous · linked notes</option><option value="disjoint">Disjoint · shared-note pairs</option><option value="pairs">Separate pairs · same root</option></select></div><div class="sequence-heading"><span id="sequence-count" class="tiny">2 / 4 INTERVALS</span><button id="add-interval" class="secondary" type="button">Add interval</button></div><div id="sequence-list"></div><p class="hint">Continuous joins the notes. Disjoint plays 1→2, pause, 2→3, repeating each shared note. Same-root pairs restart from the original root. Root transposition happens after the whole list.</p></div>
  <div class="field" id="interval-pause-field" hidden><label for="interval-pause">Pause between intervals <output id="interval-pause-value">0.7 s</output></label><input id="interval-pause" type="range" min="0.2" max="6" step="0.1" value="0.7"><p class="hint">The pause separates interval pairs. The cadence breath separates complete listening cycles.</p></div><div class="field"><label for="root-mode">Root transposition</label><select id="root-mode"><option value="random">Random roving root</option><option value="fourths">Circle of fourths · +5 st</option><option value="up">Chromatic up</option><option value="down">Chromatic down</option><option value="fixed">Fixed root note</option></select></div><div class="two-fields"><div class="field"><label for="root-note">Root / starting note</label><select id="root-note"></select></div><div class="field"><label for="repetitions">Repeats before shift</label><select id="repetitions"><option value="1">1× · every cycle</option><option value="2">2×</option><option value="3">3×</option><option value="4">4×</option></select></div></div><div class="field"><label for="speech">Eyes-free voice</label><select id="speech"><option value="off">Off · just the music</option><option value="after">Speak after notes</option><option value="before">Speak before notes</option></select></div><p class="hint" id="speech-hint">Let the interval settle before naming it.</p></div></section></aside></div>
  </section>
- <section id="quiz-panel" role="tabpanel" aria-labelledby="quiz-tab" hidden><div class="quiz-layout"><div><div class="scoreboard"><div><span>SCORE</span><b id="score">0 / 0</b></div><div><span>ACCURACY</span><b id="accuracy">—<small>%</small></b></div><div><span>STREAK</span><b id="streak">0</b></div><div><span>BEST</span><b id="best">0</b></div></div><section class="panel quiz-card"><div class="quiz-prompt"><span class="eyebrow" id="question-label">YOUR NEXT SMALL BREAKTHROUGH</span><h2 id="quiz-title">Let your ears lead.</h2><p id="quiz-instruction">Listen to the notes, then name the distance between them.</p><div class="quiz-transport"><button id="new-question" class="primary">▶ Start ear quiz</button><button id="replay" class="secondary" disabled>↻ Replay <kbd>R</kbd></button><button id="harmonic" class="secondary" disabled>Hear harmonic</button></div><label class="check-label blind-control"><input type="checkbox" id="blind" checked> Hide answer notes until I answer</label></div><div id="quiz-choices" class="quiz-choices"></div><div id="feedback" class="feedback" aria-live="polite" hidden></div></section><section class="panel progress-panel"><div class="panel-heading"><h2>INTERVAL ACCURACY</h2><button class="text-button" id="reset-score">Reset scores</button></div><div id="interval-progress" class="interval-progress"></div><p class="hint">Each step of a 3-note cell contributes to its interval’s accuracy.</p></section></div><aside class="panel settings-panel"><div class="panel-heading"><h2><span class="section-number">02</span> QUIZ RULES</h2></div><div class="settings-body"><div class="segmented" role="group" aria-label="Quiz note count"><button data-quiz-size="2" class="selected" aria-pressed="true">2-note quiz</button><button data-quiz-size="3" aria-pressed="false">3-note cell</button></div><fieldset><legend>Allowed directions</legend><div class="direction-checks"><label><input id="quiz-up" type="checkbox" checked> Ascending ↑</label><label><input id="quiz-down" type="checkbox" checked> Descending ↓</label><label><input id="quiz-harmonic" type="checkbox"> Harmonic ⇅</label></div></fieldset><div class="field"><label for="choice-count">Answer choices</label><select id="choice-count"><option value="4">4 · close distractors</option><option value="6">6 · close distractors</option><option value="8">8 · close distractors</option><option value="0">Show all enabled</option></select></div><label class="check-label"><input id="auto-advance" type="checkbox"> Auto-advance on correct</label><p class="hint">New rules apply to the next question. Three-note cells use chained steps; harmonic direction plays all notes together.</p><div class="shortcut-note"><b>YOUR KEYBOARD IS A CONTROLLER.</b><p><kbd>1</kbd>–<kbd>9</kbd> answer<br><kbd>R</kbd> / <kbd>SPACE</kbd> replay<br><kbd>ENTER</kbd> next question</p></div></div></aside></div></section>
+ <section id="quiz-panel" role="tabpanel" aria-labelledby="quiz-tab" hidden><div class="quiz-layout"><div><div class="scoreboard"><div><span>SCORE</span><b id="score">0 / 0</b></div><div><span>ACCURACY</span><b id="accuracy">—<small>%</small></b></div><div><span>STREAK</span><b id="streak">0</b></div><div><span>BEST</span><b id="best">0</b></div></div><section class="panel quiz-card"><div class="quiz-prompt"><span class="eyebrow" id="question-label">YOUR NEXT SMALL BREAKTHROUGH</span><h2 id="quiz-title">Let your ears lead.</h2><p id="quiz-instruction">Listen to the notes, then name the distance between them.</p><div class="quiz-transport"><button id="new-question" class="primary">▶ Start ear quiz</button><button id="replay" class="secondary" disabled>↻ Replay <kbd>R</kbd></button><button id="harmonic" class="secondary" disabled>Hear harmonic</button></div><label class="check-label blind-control"><input type="checkbox" id="blind" checked> Hide answer notes until I answer</label></div><div id="quiz-choices" class="quiz-choices"></div><div id="feedback" class="feedback" aria-live="polite" hidden></div></section><section class="panel progress-panel"><div class="panel-heading"><h2>INTERVAL ACCURACY</h2><button class="text-button" id="reset-score">Reset scores</button></div><div id="interval-progress" class="interval-progress"></div><p class="hint">Each step of a 3-note cell contributes to its interval’s accuracy.</p></section></div><aside class="panel settings-panel"><div class="panel-heading"><h2><span class="section-number">02</span> QUIZ RULES</h2></div><div class="settings-body"><div class="segmented" role="group" aria-label="Quiz format"><button data-quiz-size="2" class="selected" aria-pressed="true">2-note quiz</button><button data-quiz-size="3" aria-pressed="false">3-note cell</button><button data-quiz-size="grouped" aria-pressed="false">Named + Others</button></div>
+ <div id="grouped-quiz-settings" hidden>
+  <p class="hint">Give each named sound its own answer. Choose Others when you hear a sound from that group.</p>
+  <h3>Named answers</h3><ul class="quiz-sound-list" id="quiz-named-sounds"></ul>
+  <div class="field"><label for="quiz-others-source">Others source</label><select id="quiz-others-source"><option value="custom">My selected sounds</option><option value="random">Random from active pool</option></select></div>
+  <div id="quiz-custom-others"><h3>Sounds in Others</h3><ul class="quiz-sound-list" id="quiz-other-sounds"></ul></div>
+  <p class="hint" id="quiz-random-others" hidden>Uses the active interval pool and directions below, excluding your exact named sounds.</p>
+  <div class="two-fields"><div class="field"><label for="quiz-sound-interval">Sound interval</label><select id="quiz-sound-interval"></select></div><div class="field"><label for="quiz-sound-direction">Sound direction</label><select id="quiz-sound-direction"><option value="up">Ascending ↑</option><option value="down">Descending ↓</option><option value="harmonic">Harmonic ⇅</option></select></div></div>
+  <div class="quiz-sound-actions"><button id="quiz-add-named" class="secondary" type="button">Add named answer</button><button id="quiz-add-other" class="secondary" type="button">Add to Others</button></div>
+ </div>
+ <fieldset id="quiz-directions"><legend id="quiz-directions-label">Allowed directions</legend><div class="direction-checks"><label><input id="quiz-up" type="checkbox" checked> Ascending ↑</label><label><input id="quiz-down" type="checkbox" checked> Descending ↓</label><label><input id="quiz-harmonic" type="checkbox"> Harmonic ⇅</label></div></fieldset><div class="field" id="quiz-choice-count"><label for="choice-count">Answer choices</label><select id="choice-count"><option value="4">4 · close distractors</option><option value="6">6 · close distractors</option><option value="8">8 · close distractors</option><option value="0">Show all enabled</option></select></div><label class="check-label"><input id="auto-advance" type="checkbox"> Auto-advance on correct</label><p class="hint">New rules apply to the next question.</p><div class="shortcut-note"><b>YOUR KEYBOARD IS A CONTROLLER.</b><p><kbd>1</kbd>–<kbd>9</kbd> answer<br><kbd>R</kbd> / <kbd>SPACE</kbd> replay<br><kbd>ENTER</kbd> next question</p></div></div></aside></div></section>
  <section class="panel pool-panel"><div class="panel-heading"><h2><span class="section-number">04</span> ACTIVE INTERVAL POOL</h2><span class="tiny" id="pool-count">12 INTERVALS ENABLED</span></div><div class="pool-body"><div class="pool-presets"><button data-pool="all" class="selected">All within octave</button><button data-pool="major">Major scale</button><button data-pool="pillars">Core pillars</button><button data-pool="small">Step & small leaps</button><button data-pool="wide">Wide intervals</button><button data-pool="consonant">Consonances</button><button data-pool="dissonant">Dissonances</button></div><div id="pool" class="pool-grid"></div><p class="hint">Used by interval rotation, randomized cell steps, and quiz questions. Add compound intervals for a wider challenge.</p></div></section>
- <footer><span class="footer-brand">INTERVAL / 01</span><span>RELATIVE PITCH. ABSOLUTE FOCUS.</span><span>v1.3 · 11 VOICES · 12-TET · 100% OFFLINE</span></footer>
+ <footer><span class="footer-brand">INTERVAL / 01</span><span>RELATIVE PITCH. ABSOLUTE FOCUS.</span><span>v1.4 · 11 VOICES · 12-TET · 100% OFFLINE</span></footer>
 </main>
 <div id="toast" class="toast" role="status" hidden></div>
 <dialog id="help"><div class="dialog-heading"><span class="eyebrow">WELCOME TO YOUR LISTENING ROOM</span><button id="close-help" class="icon-button" aria-label="Close help">×</button></div><h2>A little practice.<br>A lot more listening.</h2><p>Choose a sound, then start an infinite listening loop or test your ear with a quiz. Click any piano key or guitar fret to hear it.</p><dl><dt>Passive · Space</dt><dd>Start or stop the loop</dd><dt>Quiz · R or Space</dt><dd>Replay the current question</dd><dt>Quiz · 1–9</dt><dd>Answer the first unfinished step</dd><dt>Quiz · Enter</dt><dd>Start or advance to the next question</dd><dt>Escape</dt><dd>Stop playback</dd></dl><p class="hint">Drag the instruments sideways on smaller screens. Sounding notes glow amber; companion notes glow teal. Audio uses equal temperament (A4 = 440 Hz); classic ratios are reference values. Speech support depends on your browser. For lock-screen listening, prepare a track and tap Play in the lock-screen player. The interactive loop needs the tab to stay active. On iPhone, tap Enable sound first. If an older iOS version is still silent, turn off Silent mode and check media volume or Bluetooth output.</p><button id="help-done" class="primary">Let’s listen</button></dialog>
@@ -171,11 +190,11 @@ input[type=range],.master-field input{height:44px}
  }
  class QuizSession {
   constructor(){this.total=0;this.correct=0;this.streak=0;this.best=0;this.byInterval={};this.targets=[];this.answers=[];this.done=false;}
-  begin(targets){this.targets=targets;this.answers=targets.map(()=>null);this.done=false;}
+  begin(targets,statIntervals=targets){this.targets=targets;this.statIntervals=statIntervals;this.answers=targets.map(()=>null);this.done=false;}
   answer(step,value){if(this.done||this.answers[step]!==null)return false;this.answers[step]=value;if(this.answers.some(x=>x===null))return false;
    this.done=true;this.total++;const correct=this.answers.every((x,i)=>x===this.targets[i]);
    this.correct+=Number(correct);this.streak=correct?this.streak+1:0;this.best=Math.max(this.best,this.streak);
-   this.targets.forEach((t,i)=>{const row=this.byInterval[t]||(this.byInterval[t]={total:0,correct:0});row.total++;row.correct+=Number(this.answers[i]===t);});return true;
+   this.statIntervals.forEach((interval,i)=>{const row=this.byInterval[interval]||(this.byInterval[interval]={total:0,correct:0});row.total++;row.correct+=Number(this.answers[i]===this.targets[i]);});return true;
   }
   get accuracy(){return this.total?Math.round(this.correct/this.total*100):0;}
  }
@@ -309,16 +328,30 @@ input[type=range],.master-field input{height:44px}
  'use strict';
  const T=IntervalCore,$=id=>document.getElementById(id),$$=s=>Array.from(document.querySelectorAll(s));
  const badges=['①','②','③','④','⑤'];
+ const quizDirections={up:'ascending',down:'descending',harmonic:'harmonic'};
+ const quizSounds=new Map();
+ for(const interval of T.intervals){
+  for(const direction of Object.keys(quizDirections)){
+   quizSounds.set(`${interval.st}:${direction}`,{interval,direction});
+  }
+ }
  const S={mode:'passive',size:2,quizSize:2,sequenceEnabled:false,sequence:[{interval:2,direction:'up'},{interval:7,direction:'up'}],pool:new Set(T.intervals.filter(x=>x.st<=12).map(x=>x.st)),looping:false,iteration:0,cycles:0,rawRoot:60,current:null,question:null,active:[],generation:0,raf:0,auto:0,session:new T.QuizSession(),synth:null};
- const settingIds=['voice','volume','view','ghosts','interval','selection-mode','direction','step2rule','step2interval','step2direction','reference','root-mode','root-note','repetitions','bpm','gap','phrasing','speech','blind','choice-count','auto-advance','quiz-up','quiz-down','quiz-harmonic','sequence-style','cell-connection','interval-pause'];
+ S.quizGroups={named:['2:up','1:up'],others:['6:up','4:up']};
+ const settingIds=['voice','volume','view','ghosts','interval','selection-mode','direction','step2rule','step2interval','step2direction','reference','root-mode','root-note','repetitions','bpm','gap','phrasing','speech','blind','choice-count','auto-advance','quiz-up','quiz-down','quiz-harmonic','quiz-others-source','sequence-style','cell-connection','interval-pause'];
  let toastTimer=0,lastCenter='',dragStart=null,dragMoved=false;
  function toast(message,error=false){clearTimeout(toastTimer);$('toast').textContent=message;$('toast').classList.toggle('error',error);$('toast').hidden=false;toastTimer=setTimeout(()=>$('toast').hidden=true,4200);}
- function save(){try{const settings={};settingIds.forEach(id=>settings[id]=$(id).type==='checkbox'?$(id).checked:$(id).value);localStorage.setItem('interval-01-v1',JSON.stringify({settings,size:S.size,quizSize:S.quizSize,sequenceEnabled:S.sequenceEnabled,sequence:S.sequence,pool:[...S.pool],stats:{total:S.session.total,correct:S.session.correct,streak:S.session.streak,best:S.session.best,byInterval:S.session.byInterval}}));}catch(_){} }
+ function save(){try{const settings={};settingIds.forEach(id=>settings[id]=$(id).type==='checkbox'?$(id).checked:$(id).value);localStorage.setItem('interval-01-v1',JSON.stringify({settings,size:S.size,quizSize:S.quizSize,quizGroups:S.quizGroups,sequenceEnabled:S.sequenceEnabled,sequence:S.sequence,pool:[...S.pool],stats:{total:S.session.total,correct:S.session.correct,streak:S.session.streak,best:S.session.best,byInterval:S.session.byInterval}}));}catch(_){} }
  function restore(){try{
   const data=JSON.parse(localStorage.getItem('interval-01-v1')||'null');if(!data||typeof data!=='object')return;
   settingIds.forEach(id=>{const el=$(id),v=data.settings?.[id];if(el.type==='checkbox'){if(typeof v==='boolean')el.checked=v;}else if(el.tagName==='SELECT'){if([...el.options].some(o=>o.value===String(v)))el.value=String(v);}else if(Number.isFinite(Number(v))&&v!==null){el.value=String(Math.max(Number(el.min),Math.min(Number(el.max),Number(v))));}});
   if(data.settings?.['sequence-style']==='pairs'&&data.settings?.['interval-pause']===undefined){const previousGap=Number(data.settings.gap);if(Number.isFinite(previousGap)&&previousGap>=0.2&&previousGap<=6)$('interval-pause').value=String(previousGap);}
   if(data.size===3)S.size=3;if(data.quizSize===3)S.quizSize=3;S.sequenceEnabled=data.sequenceEnabled===true;if(data.sequence)S.sequence=T.normalizeSequence(data.sequence);
+  if(data.quizSize==='grouped')S.quizSize='grouped';
+  for(const group of ['named','others']){
+   const saved=data.quizGroups?.[group];
+   if(Array.isArray(saved))S.quizGroups[group]=[...new Set(saved.filter(key=>quizSounds.has(key)))];
+  }
+  S.quizGroups.others=S.quizGroups.others.filter(key=>!S.quizGroups.named.includes(key));
   if(Array.isArray(data.pool)){const valid=data.pool.filter(n=>T.intervals.some(i=>i.st===n));if(valid.length)S.pool=new Set(valid);}
   const st=data.stats;if(st&&Number.isInteger(st.total)&&st.total>=0&&Number.isInteger(st.correct)&&st.correct>=0&&st.correct<=st.total){S.session.total=st.total;S.session.correct=st.correct;S.session.best=Number.isInteger(st.best)&&st.best>=0?st.best:0;S.session.streak=Number.isInteger(st.streak)&&st.streak>=0?st.streak:0;
    if(st.byInterval&&typeof st.byInterval==='object')T.intervals.forEach(i=>{const v=st.byInterval[i.st];if(v&&Number.isInteger(v.total)&&v.total>=0&&Number.isInteger(v.correct)&&v.correct>=0&&v.correct<=v.total)S.session.byInterval[i.st]={total:v.total,correct:v.correct};});
@@ -326,7 +359,7 @@ input[type=range],.master-field input{height:44px}
  }catch(_){} }
  function updateAudioStatus(synth){
   if(S.synth!==synth)return;
-  if(S.background?.url){const playing=!$('background-audio').paused;$('audio-led').classList.toggle('on',playing);$('audio-status').textContent=playing?'BACKGROUND AUDIO PLAYING':'LOCK-SCREEN TRACK READY';return;}
+  if(S.background?.url){const playing=S.background.started&&!$('background-audio').paused;$('audio-led').classList.toggle('on',playing);$('audio-status').textContent=playing?'BACKGROUND AUDIO PLAYING':'LOCK-SCREEN TRACK READY';return;}
   const running=synth.ctx.state==='running';$('audio-led').classList.toggle('on',running);
   $('audio-status').textContent=running?'AUDIO ENGINE CONNECTED':synth.ctx.state==='interrupted'?'AUDIO INTERRUPTED · TAP ENABLE SOUND':'TAP ENABLE SOUND';
   $('enable-audio').textContent=running?'Test sound':'Enable sound';
@@ -401,7 +434,7 @@ input[type=range],.master-field input{height:44px}
    bg.preparing=false;bg.track=track;bg.url=URL.createObjectURL(blob);const media=$('background-audio');media.src=bg.url;media.loop=true;media.load();
    try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(_){}
    $('background-controls').hidden=false;$('play-background').textContent='Play background loop';$('prepare-background').textContent='Prepare new track';$('background-card').setAttribute('aria-busy','false');
-   const seconds=Math.ceil(track.duration);bg.description=track.groups+' cycle'+(track.groups===1?'':'s')+' · '+Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0')+' track · repeats';$('background-status').textContent='Ready: '+bg.description+'. Tap Play, then lock the screen.';S.current=track.segments[0].cycle;renderLCD(S.current);drawInstruments(S.current.notes,[]);backgroundSession();backgroundPosition();if(S.synth)updateAudioStatus(S.synth);
+   const seconds=Math.ceil(track.duration);bg.description=track.groups+' cycle'+(track.groups===1?'':'s')+' · '+Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0')+' track · repeats';$('background-status').textContent='Ready: '+bg.description+'. Tap Play to start listening.';S.current=track.segments[0].cycle;renderLCD(S.current);drawInstruments(S.current.notes,[]);backgroundSession();backgroundPosition();updateAudioStatus(S.synth);
   }catch(error){if(token===S.generation)throw error;}
  }
  function getConfig(){return {size:S.size,interval:Number($('interval').value),direction:$('direction').value,step2rule:$('step2rule').value,step2interval:Number($('step2interval').value),step2direction:$('step2direction').value,reference:$('reference').value,pool:[...S.pool]};}
@@ -515,7 +548,17 @@ input[type=range],.master-field input{height:44px}
   const showPause=S.sequenceEnabled?S.sequence.length>1&&['disjoint','pairs'].includes($('sequence-style').value):S.size===3&&$('cell-connection').value==='disjoint';$('interval-pause-field').hidden=!showPause;$('interval-pause-value').textContent=Number($('interval-pause').value).toFixed(1)+' s';
   $('cell-settings').hidden=S.size!==3;$('rotation-help').hidden=$('selection-mode').value!=='rotate';$('interval').disabled=$('selection-mode').value==='rotate';$('custom-step2').hidden=['repeat','mirror'].includes($('step2rule').value);$('step2interval').disabled=$('step2rule').value==='random';
   $$('[data-size]').forEach(b=>{const active=b.dataset.size==='sequence'?S.sequenceEnabled:!S.sequenceEnabled&&Number(b.dataset.size)===S.size;b.classList.toggle('selected',active);b.setAttribute('aria-pressed',String(active));});
-  $$('[data-quiz-size]').forEach(b=>{const active=Number(b.dataset.quizSize)===S.quizSize;b.classList.toggle('selected',active);b.setAttribute('aria-pressed',String(active));});
+  $$('[data-quiz-size]').forEach(b=>{const active=b.dataset.quizSize===String(S.quizSize);b.classList.toggle('selected',active);b.setAttribute('aria-pressed',String(active));});
+  const grouped=S.quizSize==='grouped';
+  const randomOthers=$('quiz-others-source').value==='random';
+  $('grouped-quiz-settings').hidden=!grouped;
+  $('quiz-custom-others').hidden=randomOthers;
+  $('quiz-random-others').hidden=!randomOthers;
+  $('quiz-add-other').hidden=randomOthers;
+  $('quiz-directions').hidden=grouped&&!randomOthers;
+  $('quiz-directions-label').textContent=grouped?'Random Others directions':'Allowed directions';
+  $('quiz-choice-count').hidden=grouped;
+  $('harmonic').hidden=S.question?Boolean(S.question.group):grouped;
   $('instruments').className='instruments '+($('view').value==='piano'?'piano-only':$('view').value==='guitar'?'guitar-only':'');
   $('bpm-value').textContent=$('bpm').value;$('beat-ms').textContent=Math.round(60000/Number($('bpm').value))+' ms / beat';$('gap-value').textContent=Number($('gap').value).toFixed(1)+' s';$('volume-value').textContent=$('volume').value+'%';
   $$('[data-bpm]').forEach(b=>b.classList.toggle('selected',b.dataset.bpm===$('bpm').value));
@@ -530,35 +573,136 @@ input[type=range],.master-field input{height:44px}
   const presets=poolPresets();$$('[data-pool]').forEach(b=>b.classList.toggle('selected',presets[b.dataset.pool].length===S.pool.size&&presets[b.dataset.pool].every(x=>S.pool.has(x))));
  }
  function poolPresets(){return {all:[1,2,3,4,5,6,7,8,9,10,11,12],major:[2,4,5,7,9,11,12],pillars:[4,5,7,12],small:[1,2,3,4,5],wide:[7,8,9,10,11,12],consonant:[3,4,5,7,8,9,12],dissonant:[1,2,6,10,11]};}
+ function quizSoundName(key){
+  if(key==='others')return 'Others';
+  const {interval,direction}=quizSounds.get(key);
+  return `${interval.name} ${quizDirections[direction]}`;
+ }
+ function renderQuizGroups(){
+  for(const [group,id,heading] of [['named','quiz-named-sounds','Named answers'],['others','quiz-other-sounds','Others']]){
+   $(id).innerHTML=S.quizGroups[group].map(key=>{
+    const name=quizSoundName(key);
+    return `<li><span>${name}</span><button type="button" data-quiz-remove="${group}" data-sound="${key}" aria-label="Remove ${name} from ${heading}">×</button></li>`;
+   }).join('')||'<li class="hint">No sounds selected.</li>';
+  }
+ }
+ function addQuizSound(group){
+  const key=`${$('quiz-sound-interval').value}:${$('quiz-sound-direction').value}`;
+  if(S.quizGroups.named.includes(key)||S.quizGroups.others.includes(key)){
+   toast(`${quizSoundName(key)} is already in a group.`);
+   return;
+  }
+  S.quizGroups[group].push(key);
+  renderQuizGroups();
+  save();
+ }
  function renderStats(){
   $('score').textContent=S.session.correct+' / '+S.session.total;$('accuracy').innerHTML=(S.session.total?S.session.accuracy:'—')+'<small>%</small>';$('streak').textContent=S.session.streak;$('best').textContent=S.session.best;
   const intervals=T.intervals.filter(x=>S.pool.has(x.st)||S.session.byInterval[x.st]);$('interval-progress').innerHTML=intervals.map(i=>{const row=S.session.byInterval[i.st],pct=row?.total?Math.round(row.correct/row.total*100):0;return `<div class="progress-row"><div><span>${i.short}</span><span>${row?.total?pct+'% · '+row.correct+'/'+row.total:'—'}</span></div><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></div>`;}).join('');
  }
  async function newQuestion(){
-  stop();await audio();const directions=['up','down','harmonic'].filter(d=>$('quiz-'+d).checked);if(!directions.length){toast('Enable at least one quiz direction.',true);return;}
-  const dir=T.pick(directions),pool=[...S.pool],first=T.pick(pool),second=T.pick(pool),c={size:S.quizSize,interval:first,direction:dir,step2rule:'fixed',step2interval:second,step2direction:dir==='harmonic'?'up':T.pick(directions.filter(d=>d!=='harmonic').length?directions.filter(d=>d!=='harmonic'):['up']),reference:'chain'};
+  stop();
+  const token=S.generation;
+  const directions=Object.keys(quizDirections).filter(direction=>$('quiz-'+direction).checked);
+  const pool=[...S.pool];
+  let c,group;
+  if(S.quizSize==='grouped'){
+   const named=S.quizGroups.named;
+   const random=$('quiz-others-source').value==='random';
+   const candidates=random?pool.flatMap(interval=>directions.map(direction=>`${interval}:${direction}`)):S.quizGroups.others;
+   const others=candidates.filter(key=>!named.includes(key));
+   if(!named.length){toast('Add at least one named answer.',true);return;}
+   if(!others.length){
+    toast(random?'No sounds are available for Others. Enable more intervals or directions.':'Add at least one sound to Others.',true);
+    return;
+   }
+   const choices=[...named,'others'];
+   const target=T.pick(choices);
+   const key=target==='others'?T.pick(others):target;
+   const {interval,direction}=quizSounds.get(key);
+   c={size:2,interval:interval.st,direction};
+   group={choices:T.shuffle(choices),target,key,others};
+  }else{
+   if(!directions.length){toast('Enable at least one quiz direction.',true);return;}
+   const direction=T.pick(directions);
+   const melodic=directions.filter(value=>value!=='harmonic');
+   c={size:S.quizSize,interval:T.pick(pool),direction,step2rule:'fixed',step2interval:T.pick(pool),
+    step2direction:direction==='harmonic'?'up':T.pick(melodic),reference:'chain'};
+  }
+  await audio();
+  if(token!==S.generation)return;
   const offsets=T.cellOffsets(c),root=fitVisible(T.pick([50,52,53,55,57,59,60,62,64]),offsets);
-  S.question={notes:offsets.map(o=>root+o),steps:offsets.slice(1).map((o,i)=>o-offsets[i]),harmonic:dir==='harmonic',config:c};S.current=S.question;
-  S.session.begin(S.question.steps.map(Math.abs));$('feedback').hidden=true;$('new-question').textContent='Next question →';$('replay').disabled=false;$('harmonic').disabled=false;
-  $('question-label').textContent='QUESTION '+String(S.session.total+1).padStart(2,'0')+' / '+(S.quizSize===3?'3-NOTE CELL':'2-NOTE INTERVAL');$('quiz-title').textContent=S.quizSize===3?'Two steps. One musical thought.':'What interval do you hear?';$('quiz-instruction').textContent=dir==='harmonic'?'The notes sound together. Identify the distance'+(S.quizSize===3?' in each step.':'.'):'Listen to the '+(S.quizSize===3?'three notes and identify each step.':dir==='down'?'descending pair.':'ascending pair.');
+  S.question={notes:offsets.map(o=>root+o),steps:offsets.slice(1).map((o,i)=>o-offsets[i]),harmonic:c.direction==='harmonic',config:c,group};
+  S.current=S.question;
+  const intervals=S.question.steps.map(Math.abs);
+  S.session.begin(group?[group.target]:intervals,intervals);
+  $('feedback').hidden=true;$('new-question').textContent='Next question →';$('replay').disabled=false;
+  $('harmonic').disabled=false;$('harmonic').hidden=Boolean(group);
+  const cell=c.size===3;
+  const format=group?'NAMED + OTHERS':cell?'3-NOTE CELL':'2-NOTE INTERVAL';
+  $('question-label').textContent='QUESTION '+String(S.session.total+1).padStart(2,'0')+' / '+format;
+  $('quiz-title').textContent=cell?'Two steps. One musical thought.':'What interval do you hear?';
+  if(group)$('quiz-instruction').textContent='Listen for both the interval and its direction. Choose a named sound or Others.';
+  else if(c.direction==='harmonic')$('quiz-instruction').textContent=cell?'The notes sound together. Identify the distance in each step.':'The notes sound together. Identify the distance.';
+  else $('quiz-instruction').textContent=cell?'Listen to the three notes and identify each step.':`Listen to the ${quizDirections[c.direction]} pair.`;
   renderChoices();await replayQuestion();
  }
  function renderChoices(){
-  const q=S.question;if(!q)return;const count=Number($('choice-count').value);q.options=q.steps.map(s=>T.choices([...S.pool],Math.abs(s),count));
-  $('quiz-choices').classList.toggle('cell',q.steps.length===2);$('quiz-choices').innerHTML=q.options.map((options,step)=>`<div class="choice-column"><h3 class="choice-heading">${q.steps.length===2?'STEP '+(step+1)+' · NOTE '+(step+1)+' → '+(step+2):'NAME THE INTERVAL'}</h3><div class="choice-grid">${options.map((value,i)=>`<button class="choice" data-choice="${value}" data-step="${step}"><span><b>${T.info(value).short}</b><span class="choice-name">${T.info(value).name}</span></span><kbd>${i<9?i+1:'·'}</kbd></button>`).join('')}</div></div>`).join('');
+  const q=S.question;if(!q)return;
+  const count=Number($('choice-count').value);
+  q.options=q.group?[q.group.choices]:q.steps.map(s=>T.choices([...S.pool],Math.abs(s),count));
+  $('quiz-choices').classList.toggle('cell',q.steps.length===2);
+  $('quiz-choices').innerHTML=q.options.map((options,step)=>{
+   const heading=q.steps.length===2?`STEP ${step+1} · NOTE ${step+1} → ${step+2}`:'NAME THE INTERVAL';
+   const buttons=options.map((value,i)=>{
+    const content=q.group?`<b>${quizSoundName(value)}</b>`:`<b>${T.info(value).short}</b><span class="choice-name">${T.info(value).name}</span>`;
+    return `<button class="choice" data-choice="${value}" data-step="${step}"><span>${content}</span><kbd>${i<9?i+1:'·'}</kbd></button>`;
+   }).join('');
+   return `<div class="choice-column"><h3 class="choice-heading">${heading}</h3><div class="choice-grid">${buttons}</div></div>`;
+  }).join('');
  }
  async function replayQuestion(harmonic=false){if(!S.question){await newQuestion();return;}clearTimeout(S.auto);S.auto=0;const token=cancelPlayback();await audio();if(token!==S.generation)return;S.current=S.question;playScheduled(S.question.notes,T.phrase(S.question.notes,Number($('bpm').value),'pure',harmonic||S.question.harmonic),token);}
- async function answer(step,value){
-  if(!S.question)return;
-  if(S.session.done){clearTimeout(S.auto);S.auto=0;const root=S.question.notes[step],signed=value*(S.question.steps[step]<0?-1:1);const token=cancelPlayback();await audio();if(token!==S.generation)return;const notes=[root,root+signed];S.current={notes,steps:[signed]};playScheduled(notes,T.phrase(notes,Number($('bpm').value),'pure',S.question.harmonic),token);toast('Comparing '+T.info(value).name+' from '+T.noteName(root)+'.');return;}
+ async function answer(step,key){
+  const q=S.question;if(!q)return;
+  const value=q.group?key:Number(key);
+  if(!q.options[step]?.includes(value))return;
+  if(S.session.done){
+   clearTimeout(S.auto);S.auto=0;
+   const root=q.notes[step];
+   let signed,harmonic,label;
+   if(q.group){
+    let soundKey=value;
+    if(value==='others')soundKey=q.group.target==='others'?q.group.key:T.pick(q.group.others);
+    const {interval,direction}=quizSounds.get(soundKey);
+    signed=interval.st*(direction==='down'?-1:1);
+    harmonic=direction==='harmonic';
+    label=quizSoundName(soundKey);
+   }else{
+    signed=value*(q.steps[step]<0?-1:1);
+    harmonic=q.harmonic;
+    label=T.info(value).name;
+   }
+   const token=cancelPlayback();await audio();if(token!==S.generation)return;
+   const notes=[root,root+signed];S.current={notes,steps:[signed]};
+   playScheduled(notes,T.phrase(notes,Number($('bpm').value),'pure',harmonic),token);
+   toast('Comparing '+label+' from '+T.noteName(root)+'.');
+   return;
+  }
   if(S.session.answers[step]!==null)return;
-  const finished=S.session.answer(step,value);$$(`.choice[data-step="${step}"]`).forEach(b=>{b.classList.toggle('chosen',Number(b.dataset.choice)===value);b.setAttribute('aria-pressed',String(Number(b.dataset.choice)===value));});
+  const finished=S.session.answer(step,value);$$(`.choice[data-step="${step}"]`).forEach(b=>{const selected=b.dataset.choice===String(value);b.classList.toggle('chosen',selected);b.setAttribute('aria-pressed',String(selected));});
   if(!finished){$('quiz-instruction').textContent=`Step ${step+1} locked in. Now identify Step ${step===0?2:1}.`;return;}
   const correct=S.session.answers.every((a,i)=>a===S.session.targets[i]);
   cancelPlayback();S.current=S.question;drawInstruments(S.question.notes,[]);
-  $$('.choice').forEach(b=>{const col=Number(b.dataset.step),v=Number(b.dataset.choice);b.classList.remove('chosen');b.classList.toggle('correct',v===S.session.targets[col]);b.classList.toggle('wrong',v===S.session.answers[col]&&v!==S.session.targets[col]);});
+  $$('.choice').forEach(b=>{const col=Number(b.dataset.step),v=b.dataset.choice;const right=v===String(S.session.targets[col]);b.classList.remove('chosen');b.classList.toggle('correct',right);b.classList.toggle('wrong',v===String(S.session.answers[col])&&!right);});
   $('feedback').className='feedback'+(correct?'':' wrong-feedback');$('feedback').hidden=false;
-  $('feedback').innerHTML=`<h3>${correct?'✓ You heard it.':'Keep that sound in mind.'}</h3><p>${correct?'A little more connection, every time.':'Your answer: '+S.session.answers.map(a=>T.info(a).name).join(' + ')+'. The interval was '+S.question.steps.map(s=>T.info(s).name).join(' + ')+'.'}</p><div class="feedback-notes">${S.question.notes.map(T.noteName).join(' → ')}</div><p>${S.question.steps.map(s=>`${s>0?'+':''}${s} semitones · ${Math.pow(2,Math.abs(s)/12).toFixed(4)}× in 12-TET · ${T.info(s).ratio} reference ratio<br>Song cue: ${s<0?T.info(s).down:T.info(s).up}`).join('<br>')}</p><p>Tap any answer to compare it from the same starting note.</p><button id="handoff">∞ Loop this ${S.question.steps.length===2?'cell':'interval'} in Passive Listening ↗</button>`;
+  let explanation='A little more connection, every time.';
+  if(q.group){
+   const category=q.group.target==='others'?' (Others)':'';
+   explanation=`You chose ${quizSoundName(value)}. The sound was ${quizSoundName(q.group.key)}${category}.`;
+  }else if(!correct){
+   explanation=`Your answer was ${S.session.answers.map(a=>T.info(a).name).join(' + ')}. The interval was ${q.steps.map(s=>T.info(s).name).join(' + ')}.`;
+  }
+  $('feedback').innerHTML=`<h3>${correct?'✓ You heard it.':'Keep that sound in mind.'}</h3><p>${explanation}</p><div class="feedback-notes">${q.notes.map(T.noteName).join(' → ')}</div><p>${q.steps.map(s=>`${s>0?'+':''}${s} semitones · ${Math.pow(2,Math.abs(s)/12).toFixed(4)}× in 12-TET · ${T.info(s).ratio} reference ratio<br>Song cue: ${s<0?T.info(s).down:T.info(s).up}`).join('<br>')}</p><p>Tap any answer to compare it from the same starting note.</p><button id="handoff">∞ Loop this ${q.steps.length===2?'cell':'interval'} in Passive Listening ↗</button>`;
   $('handoff').addEventListener('click',safe(handoff));$('quiz-title').textContent=correct?'That’s the connection.':'One step closer.';$('quiz-instruction').textContent='The notes are revealed. Compare the sounds, or try the next question.';renderStats();save();
   if(correct&&$('auto-advance').checked)S.auto=setTimeout(safe(newQuestion),2000);
  }
@@ -569,18 +713,31 @@ input[type=range],.master-field input{height:44px}
   $('phrasing').value='pure';$('cell-connection').value='continuous';refreshControls();setMode('passive');save();await startLoop();$('passive-tab').scrollIntoView({behavior:'smooth',block:'start'});
  }
  function initialize(){
-  for(const id of ['interval','step2interval'])$(id).innerHTML=T.intervals.map(i=>`<option value="${i.st}">${i.short} · ${i.name}</option>`).join('');$('interval').value='7';$('step2interval').value='10';
+  for(const id of ['interval','step2interval','quiz-sound-interval'])$(id).innerHTML=T.intervals.map(i=>`<option value="${i.st}">${i.short} · ${i.name}</option>`).join('');$('interval').value='7';$('step2interval').value='10';
   for(let m=48;m<=72;m++)$('root-note').add(new Option(T.noteName(m),m));$('root-note').value='60';
   restore();if(!['quiz-up','quiz-down','quiz-harmonic'].some(id=>$(id).checked))$('quiz-up').checked=true;
-  buildInstruments();renderSequence();refreshControls();renderPool();renderStats();preview();
+  buildInstruments();renderSequence();renderQuizGroups();refreshControls();renderPool();renderStats();preview();
   const unlockFromGesture=e=>{if(S.background||e.target.closest?.('#background-card'))return;if(e.type==='keydown'&&(e.repeat||e.ctrlKey||e.metaKey||e.altKey||![' ','Enter','r','R'].includes(e.key)))return;audio().catch(()=>{});};
   for(const event of ['touchend','click','keydown'])document.addEventListener(event,unlockFromGesture,{capture:true,passive:true});
   on('enable-audio','click',async()=>{stop();const token=S.generation;const synth=await audio(true);if(token!==S.generation)return;if(Number($('volume').value)===0){toast('Master volume is muted. Raise it to hear the sound test.');return;}synth.play(69,undefined,0.6,0.7,$('voice').value);toast('Sound test: A4 · 440 Hz.');});
   on('loop','click',async()=>{if(S.looping)stop();else await startLoop();});on('once','click',async()=>{stop();S.iteration=0;await runCycle(true);});
   on('prepare-background','click',prepareBackground);on('stop-background','click',stop);
   on('play-background','click',()=>{const media=$('background-audio');if(!S.background?.url)return;if(media.paused)return playBackground();media.pause();});
-  on('background-audio','play',()=>{if(!S.background?.url)return;S.background.started=true;S.looping=true;loopButton();$('play-background').textContent='Pause background loop';$('background-status').textContent='Playing: '+S.background.description+'. You can lock the screen or switch apps.';if(S.synth?.ctx.state==='running')S.synth.ctx.suspend().catch(()=>{});backgroundSession();animateBackground();if(S.synth)updateAudioStatus(S.synth);else{$('audio-led').classList.add('on');$('audio-status').textContent='BACKGROUND AUDIO PLAYING';}});
-  on('background-audio','pause',()=>{if(!S.background?.url)return;S.looping=false;loopButton();cancelAnimationFrame(S.raf);$('play-background').textContent='Play background loop';$('background-status').textContent='Paused. Tap Play here or use the lock-screen media controls to resume.';backgroundPosition();syncBackground();if(S.synth)updateAudioStatus(S.synth);});
+  on('background-audio','play',()=>{
+   if(!S.background?.url||$('background-audio').paused)return;
+   S.looping=true;
+   loopButton();
+   $('play-background').textContent='Pause background loop';
+   $('background-status').textContent='Starting audio…';
+  });
+  on('background-audio','playing',()=>{
+   if(!S.background?.url||$('background-audio').paused)return;
+   S.background.started=true;
+   $('background-status').textContent='Playing: '+S.background.description+'. You can lock the screen or switch apps.';
+   if(S.synth?.ctx.state==='running')S.synth.ctx.suspend().catch(()=>{});
+   backgroundSession();animateBackground();updateAudioStatus(S.synth);
+  });
+  on('background-audio','pause',()=>{if(!S.background?.url)return;S.looping=false;loopButton();cancelAnimationFrame(S.raf);$('play-background').textContent='Play background loop';$('background-status').textContent='Paused. Tap Play here or use the lock-screen media controls to resume.';backgroundPosition();syncBackground();updateAudioStatus(S.synth);});
   for(const event of ['timeupdate','loadedmetadata','seeked'])on('background-audio',event,()=>{backgroundPosition();syncBackground();});
   on('background-audio','error',()=>{if(S.background?.url){stop();toast('The prepared track could not play. Prepare it again and tap Play.',true);}});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.background?.url){syncBackground();if(!$('background-audio').paused)animateBackground();}});
@@ -601,7 +758,17 @@ input[type=range],.master-field input{height:44px}
   on('add-interval','click',async()=>{if(S.sequence.length>=4)return;S.sequence.push({interval:7,direction:'up'});renderSequence();await sequenceChanged();});
   $('sequence-list').addEventListener('change',safe(async e=>{const input=e.target;if(!input.dataset.sequenceField)return;const index=Number(input.dataset.sequenceIndex);S.sequence[index][input.dataset.sequenceField]=input.dataset.sequenceField==='interval'?Number(input.value):input.value;await sequenceChanged();}));
   $('sequence-list').addEventListener('click',safe(async e=>{const button=e.target.closest('[data-remove-sequence]');if(!button||S.sequence.length<=1)return;S.sequence.splice(Number(button.dataset.removeSequence),1);renderSequence();await sequenceChanged();}));
-  $$('[data-quiz-size]').forEach(b=>b.addEventListener('click',()=>{S.quizSize=Number(b.dataset.quizSize);refreshControls();save();}));
+  $$('[data-quiz-size]').forEach(b=>b.addEventListener('click',()=>{S.quizSize=b.dataset.quizSize==='grouped'?'grouped':Number(b.dataset.quizSize);refreshControls();save();}));
+  on('quiz-add-named','click',()=>addQuizSound('named'));
+  on('quiz-add-other','click',()=>addQuizSound('others'));
+  on('grouped-quiz-settings','click',e=>{
+   const button=e.target.closest('[data-quiz-remove]');
+   if(!button)return;
+   const {quizRemove:group,sound}=button.dataset;
+   S.quizGroups[group]=S.quizGroups[group].filter(key=>key!==sound);
+   renderQuizGroups();
+   save();
+  });
   $$('[data-bpm]').forEach(b=>b.addEventListener('click',safe(async()=>{invalidateBackground();$('bpm').value=b.dataset.bpm;refreshControls();save();if(S.looping)await runCycle();})));
   $$('[data-drill]').forEach(b=>b.addEventListener('click',safe(async()=>{
    if(S.mode!=='passive')setMode('passive');S.sequenceEnabled=false;$('selection-mode').value='lock';
@@ -612,8 +779,8 @@ input[type=range],.master-field input{height:44px}
   $$('[data-pool]').forEach(b=>b.addEventListener('click',()=>{invalidateBackground();S.pool=new Set(poolPresets()[b.dataset.pool]);renderPool();renderStats();save();}));
   $('pool').addEventListener('click',e=>{const b=e.target.closest('[data-pool-note]');if(!b)return;const n=Number(b.dataset.poolNote);if(S.pool.has(n)){if(S.pool.size===1){toast('Keep at least one interval in your pool.');return;}invalidateBackground();S.pool.delete(n);}else{invalidateBackground();S.pool.add(n);}renderPool();renderStats();save();});
   on('new-question','click',newQuestion);on('replay','click',()=>replayQuestion());on('harmonic','click',()=>replayQuestion(true));
-  $('quiz-choices').addEventListener('click',safe(async e=>{const b=e.target.closest('[data-choice]');if(b)await answer(Number(b.dataset.step),Number(b.dataset.choice));}));
-  on('reset-score','click',()=>{stop();S.session=new T.QuizSession();S.question=null;S.current={notes:[],steps:[]};$('quiz-choices').innerHTML='';$('feedback').hidden=true;$('new-question').textContent='▶ Start ear quiz';$('replay').disabled=true;$('harmonic').disabled=true;$('quiz-title').textContent='A fresh pair of ears.';$('question-label').textContent='YOUR NEXT SMALL BREAKTHROUGH';$('quiz-instruction').textContent='Listen to the notes, then name the distance between them.';drawInstruments([],[]);renderStats();save();toast('Scores reset. Your practice settings are saved.');});
+  $('quiz-choices').addEventListener('click',safe(async e=>{const b=e.target.closest('[data-choice]');if(b)await answer(Number(b.dataset.step),b.dataset.choice);}));
+  on('reset-score','click',()=>{stop();S.session=new T.QuizSession();S.question=null;S.current={notes:[],steps:[]};$('quiz-choices').innerHTML='';$('feedback').hidden=true;$('new-question').textContent='▶ Start ear quiz';$('replay').disabled=true;$('harmonic').disabled=true;$('quiz-title').textContent='A fresh pair of ears.';$('question-label').textContent='YOUR NEXT SMALL BREAKTHROUGH';$('quiz-instruction').textContent='Listen to the notes, then name the distance between them.';drawInstruments([],[]);refreshControls();renderStats();save();toast('Scores reset. Your practice settings are saved.');});
   on('help-button','click',()=>$('help').showModal());on('close-help','click',()=>$('help').close());on('help-done','click',()=>$('help').close());
   document.addEventListener('keydown',safe(async e=>{
    if(e.key==='Escape'){stop();return;}if(e.repeat||e.ctrlKey||e.metaKey||e.altKey||$('help').open||e.target.matches('input,select,textarea,[contenteditable="true"]'))return;
@@ -622,7 +789,7 @@ input[type=range],.master-field input{height:44px}
    else if(S.mode==='quiz'){
     if(e.code==='Space'||e.key.toLowerCase()==='r'){e.preventDefault();await replayQuestion();}
     else if(e.key==='Enter'){e.preventDefault();await newQuestion();}
-    else if(/^[1-9]$/.test(e.key)&&S.question&&!S.session.done){const step=S.session.answers.findIndex(a=>a===null),buttons=$$(`.choice[data-step="${step}"]`),b=buttons[Number(e.key)-1];if(b)await answer(step,Number(b.dataset.choice));}
+    else if(/^[1-9]$/.test(e.key)&&S.question&&!S.session.done){const step=S.session.answers.findIndex(a=>a===null),buttons=$$(`.choice[data-step="${step}"]`),b=buttons[Number(e.key)-1];if(b)await answer(step,b.dataset.choice);}
    }
   }));
   window.addEventListener('pagehide',()=>{if(!S.background)stop();save();});
