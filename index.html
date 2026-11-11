@@ -59,8 +59,8 @@ input[type=range],.master-field input{height:44px}
  <section id="passive-panel" role="tabpanel" aria-labelledby="passive-tab">
  <div class="passive-layout"><div class="listening-main">
  <section class="lcd" aria-labelledby="interval-title"><div class="lcd-top"><span><i id="transport-led" class="led"></i> <span id="transport-status">STANDBY</span></span><span>CYCLE <b id="cycle-count">0000</b></span></div><div class="lcd-title-row"><div><p id="interval-direction" class="eyebrow">ASCENDING INTERVAL ↑</p><h2 id="interval-title">Perfect fifth</h2></div><div id="interval-symbol" class="interval-symbol">P5<span>+7 SEMITONES</span></div></div><div class="note-sequence" id="note-sequence"></div><div class="lcd-bottom"><span id="ratio-readout">1.4983× <small>12-TET</small> · 3:2 <small>REFERENCE</small></span><span id="song-reference">↗ Twinkle, Twinkle, Little Star</span></div><div class="breath-track"><div id="breath-progress"></div></div></section>
- <div class="transport"><button id="loop" class="primary"><span class="play-icon">▶</span><span id="loop-label">Start infinite loop</span><kbd>SPACE</kbd></button><button id="once" class="secondary">▷ <span>Play cycle once</span></button></div>
- <section id="background-card" class="panel background-card" aria-labelledby="background-title"><div class="settings-body"><h3 id="background-title">LISTEN WITH YOUR SCREEN LOCKED</h3><p class="hint">Prepare your current drill and tap Play. Once audio starts, you can lock your phone or switch apps.</p><button id="prepare-background" class="secondary" type="button">Prepare lock-screen track</button><p id="background-status" class="hint" role="status">The prepared track repeats automatically. Prepare again for fresh random choices.</p><div id="background-controls" hidden><div class="background-buttons"><button id="play-background" class="primary" type="button">Play background loop</button><button id="stop-background" class="secondary" type="button">Stop background loop</button></div><audio id="background-audio" controls loop preload="auto" aria-label="Lock-screen listening track"></audio></div><p class="hint">Music only. Set volume and your drill before preparing; changing them clears the track. Spoken announcements use the interactive player above.</p></div></section>
+ <div class="transport"><button id="loop" class="primary"><span class="play-icon">▶</span><span id="loop-label">Prepare infinite loop</span><kbd>SPACE</kbd></button><button id="once" class="secondary">▷ <span>Play cycle once</span></button></div>
+ <section id="background-card" class="panel background-card" aria-labelledby="background-title"><div class="settings-body"><h3 id="background-title">LISTEN WITH YOUR SCREEN LOCKED</h3><p class="hint">The main loop button prepares a track, then becomes Play infinite loop. Tap Play before locking your phone or switching apps.</p><button id="prepare-background" class="secondary" type="button">Prepare lock-screen track</button><p id="background-status" class="hint" role="status">The prepared track repeats automatically. Prepare again for fresh random choices.</p><div id="background-controls" hidden><div class="background-buttons"><button id="play-background" class="primary" type="button">Play background loop</button><button id="stop-background" class="secondary" type="button">Stop background loop</button></div><audio id="background-audio" controls loop preload="auto" aria-label="Lock-screen listening track"></audio></div><p class="hint">Music only; the prepared playlist repeats. Changing music or volume clears it. For spoken announcements or fresh random choices every cycle, use the live loop while keeping this page open.</p><button id="live-loop" class="secondary" type="button">Start live loop</button></div></section>
  <section class="presets"><div class="small-heading"><h3>SPOTLIGHT DRILLS</h3><span>ONE CLICK TO TUNE IN</span></div><div class="drill-grid"><button data-drill="2,-1">M2 <span>Descending ↓</span></button><button data-drill="10,1">m7 <span>Ascending ↑</span></button><button data-drill="5,1">P4 <span>Ascending ↑</span></button><button data-drill="7,-1">P5 <span>Descending ↓</span></button><button data-drill="6,1">TT <span>Ascending ↑</span></button><button data-drill="cell">3-note <span>M2 ↓ + m7 ↑</span></button></div></section>
  <section class="panel settings-panel"><div class="panel-heading"><h2><span class="section-number">03</span> PACE & PHRASING</h2><span class="tiny">MAKE ROOM TO LISTEN</span></div><div class="settings-body"><div class="tempo-heading"><label for="bpm">Speed</label><div><output id="bpm-value">76</output><span>BPM</span></div></div><input type="range" id="bpm" min="40" max="200" value="76"><div class="range-scale"><span>40 BPM</span><output id="beat-ms">789 ms / beat</output><span>200 BPM</span></div><div class="tempo-chips"><button data-bpm="56">Lento <b>56</b></button><button data-bpm="76" class="selected">Andante <b>76</b></button><button data-bpm="100">Moderato <b>100</b></button><button data-bpm="132">Allegro <b>132</b></button><button data-bpm="168">Presto <b>168</b></button></div><div class="two-fields"><div class="field"><label for="phrasing">Cadence style</label><select id="phrasing"><option value="pure">Pure melodic</option><option value="lock">Melodic + harmonic lock</option><option value="cluster">Cluster first → unpack melodically</option><option value="echo">Call & soft echo</option><option value="swing">Dotted swing cadence</option></select></div><div class="field"><label for="gap">Breath between cycles <output id="gap-value">2.0 s</output></label><input id="gap" type="range" min="0.3" max="6" step="0.1" value="2"></div></div></div></section>
  </div><aside class="listening-settings"><section class="panel settings-panel"><div class="panel-heading"><h2><span class="section-number">02</span> BUILD YOUR INTERVAL</h2></div><div class="settings-body"><div class="segmented" role="group" aria-label="Passive note count"><button data-size="2" class="selected" aria-pressed="true">2-note interval</button><button data-size="3" aria-pressed="false">3-note cell</button><button data-size="sequence" aria-pressed="false">1–4 intervals</button></div><div id="classic-settings"><div class="two-fields"><div class="field"><label for="selection-mode">Selection</label><select id="selection-mode"><option value="lock">Single interval lock</option><option value="rotate">Multi-interval rotation</option></select></div><div class="field"><label for="direction">Direction</label><select id="direction"><option value="up">Ascending ↑</option><option value="down">Descending ↓</option><option value="harmonic">Harmonic ⇅</option><option value="alternate">Alternate ↑ / ↓</option></select></div></div><div class="field"><label for="interval">Step 1 <span class="muted">NOTE 1 → NOTE 2</span></label><select id="interval"></select></div><div id="rotation-help" class="hint" hidden>Rotates through the active pool below. Step 1 supplies the first interval.</div>
@@ -395,7 +395,15 @@ input[type=range],.master-field input{height:44px}
   $$('.note-chip').forEach(x=>x.classList.remove('active'));
   return S.generation;
  }
- function loopButton(){ $('loop').classList.toggle('running',S.looping);$('loop-label').textContent=S.looping?'Stop infinite loop':'Start infinite loop';$('loop').querySelector('.play-icon').textContent=S.looping?'■':'▶';$('transport-led').classList.toggle('on',S.looping);}
+ function loopButton(){
+  const preparing=!!S.background?.preparing,native=!!S.background?.url,live=S.looping&&!native;
+  $('loop').classList.toggle('running',S.looping);
+  $('loop').disabled=preparing;
+  $('loop-label').textContent=live?'Stop interactive playback':S.looping?'Pause infinite loop':preparing?'Preparing loop…':native?'Play infinite loop':'Prepare infinite loop';
+  $('loop').querySelector('.play-icon').textContent=S.looping?'■':'▶';
+  $('live-loop').textContent=live?'Stop live loop':'Start live loop';
+  $('transport-led').classList.toggle('on',S.looping);
+ }
  function stop(){clearTimeout(S.auto);S.auto=0;S.looping=false;cancelPlayback();loopButton();$('transport-status').textContent='STANDBY';if(S.current)drawInstruments(S.current.notes,[]);}
  function disposeBackground(){
   const bg=S.background;if(!bg)return;S.background=null;
@@ -403,6 +411,7 @@ input[type=range],.master-field input{height:44px}
   $('background-controls').hidden=true;$('prepare-background').textContent='Prepare lock-screen track';$('background-card').setAttribute('aria-busy','false');$('background-status').textContent='The prepared track repeats automatically. Prepare again for fresh random choices.';
   if(navigator.mediaSession){for(const action of ['play','pause','stop','seekto','seekbackward','seekforward'])try{navigator.mediaSession.setActionHandler(action,null);}catch(_){}try{navigator.mediaSession.metadata=null;navigator.mediaSession.playbackState='none';navigator.mediaSession.setPositionState?.();}catch(_){} }
   if(S.synth)updateAudioStatus(S.synth);else{$('audio-led').classList.remove('on');$('audio-status').textContent='READY WHEN YOU ARE';}
+  loopButton();
  }
  function invalidateBackground(){if(S.background){stop();toast('Settings changed. Prepare a new lock-screen track.');}}
  function passiveTiming(){return {bpm:Number($('bpm').value),style:$('phrasing').value,pause:Number($('interval-pause').value),gap:Number($('gap').value)};}
@@ -441,6 +450,7 @@ input[type=range],.master-field input{height:44px}
   if(S.background?.preparing){stop();return;}
   stop();const token=S.generation,bg={preparing:true,started:false};S.background=bg;
   $('prepare-background').textContent='Cancel preparation';$('background-card').setAttribute('aria-busy','true');$('background-status').textContent='Preparing your drill… keep Safari open until the Play button appears.';
+  loopButton();
   try{
    const rawRoot=S.rawRoot;S.rawRoot=Number($('root-note').value);
    const deterministic=$('root-mode').value==='fixed'&&(S.sequenceEnabled||$('selection-mode').value==='lock'&&$('direction').value!=='alternate'&&(S.size===2||$('step2rule').value!=='random'));
@@ -449,7 +459,7 @@ input[type=range],.master-field input{height:44px}
    if(token!==S.generation||S.background!==bg)return;
    bg.preparing=false;bg.track=track;bg.url=URL.createObjectURL(blob);const media=$('background-audio');media.src=bg.url;media.loop=true;media.load();
    try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(_){}
-   $('background-controls').hidden=false;$('play-background').textContent='Play background loop';$('prepare-background').textContent='Prepare new track';$('background-card').setAttribute('aria-busy','false');
+   $('background-controls').hidden=false;$('play-background').textContent='Play background loop';$('prepare-background').textContent='Prepare new track';$('background-card').setAttribute('aria-busy','false');loopButton();
    const seconds=Math.ceil(track.duration);bg.description=track.groups+' cycle'+(track.groups===1?'':'s')+' · '+Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0')+' track · repeats';$('background-status').textContent='Ready: '+bg.description+'. Tap Play to start listening.';S.current=track.segments[0].cycle;renderLCD(S.current);drawInstruments(S.current.notes,[]);backgroundSession();backgroundPosition();updateAudioStatus(S.synth);
   }catch(error){if(token===S.generation)throw error;}
  }
@@ -582,6 +592,12 @@ input[type=range],.master-field input{height:44px}
   playScheduled(cycle.notes,plan,token,betweenPairs?Number($('interval-pause').value):once?0:Number($('gap').value),finish);
  }
  async function startLoop(){stop();S.looping=true;S.iteration=0;S.rawRoot=Number($('root-note').value);loopButton();await runCycle();}
+ async function toggleMainLoop(){
+  if(S.background?.preparing)return;
+  if(S.background?.url){const media=$('background-audio');if(media.paused)await playBackground();else media.pause();return;}
+  if(S.looping){stop();return;}
+  await prepareBackground();
+ }
  function refreshControls(){
   $('classic-settings').hidden=S.sequenceEnabled;$('sequence-settings').hidden=!S.sequenceEnabled;
   const showPause=S.sequenceEnabled?S.sequence.length>1&&['disjoint','pairs'].includes($('sequence-style').value):S.size===3&&$('cell-connection').value==='disjoint';$('interval-pause-field').hidden=!showPause;$('interval-pause-value').textContent=Number($('interval-pause').value).toFixed(1)+' s';
@@ -759,7 +775,7 @@ input[type=range],.master-field input{height:44px}
   const unlockFromGesture=e=>{if(S.background||e.target.closest?.('#background-card'))return;if(e.type==='keydown'&&(e.repeat||e.ctrlKey||e.metaKey||e.altKey||![' ','Enter','r','R'].includes(e.key)))return;audio().catch(()=>{});};
   for(const event of ['touchend','click','keydown'])document.addEventListener(event,unlockFromGesture,{capture:true,passive:true});
   on('enable-audio','click',async()=>{stop();const token=S.generation;const synth=await audio(true);if(token!==S.generation)return;if(Number($('volume').value)===0){toast('Master volume is muted. Raise it to hear the sound test.');return;}synth.play(69,undefined,0.6,0.7,$('voice').value);toast('Sound test: A4 · 440 Hz.');});
-  on('loop','click',async()=>{if(S.looping)stop();else await startLoop();});on('once','click',async()=>{stop();S.iteration=0;await runCycle(true);});
+  on('loop','click',toggleMainLoop);on('live-loop','click',async()=>{if(S.looping&&!S.background)stop();else await startLoop();});on('once','click',async()=>{stop();S.iteration=0;await runCycle(true);});
   on('prepare-background','click',prepareBackground);on('stop-background','click',stop);
   on('play-background','click',()=>{const media=$('background-audio');if(!S.background?.url)return;if(media.paused)return playBackground();media.pause();});
   on('background-audio','play',()=>{
@@ -824,7 +840,7 @@ input[type=range],.master-field input{height:44px}
   document.addEventListener('keydown',safe(async e=>{
    if(e.key==='Escape'){stop();return;}if(e.repeat||e.ctrlKey||e.metaKey||e.altKey||$('help').open||e.target.matches('input,select,textarea,[contenteditable="true"]'))return;
    if(e.target.closest('button')&&[' ','Enter'].includes(e.key))return;
-   if(S.mode==='passive'&&e.code==='Space'){e.preventDefault();S.looping?stop():await startLoop();}
+   if(S.mode==='passive'&&e.code==='Space'){e.preventDefault();await toggleMainLoop();}
    else if(S.mode==='quiz'){
     if(e.code==='Space'||e.key.toLowerCase()==='r'){e.preventDefault();await replayQuestion();}
     else if(e.key==='Enter'){e.preventDefault();await newQuestion();}

@@ -69,7 +69,15 @@
   $$('.note-chip').forEach(x=>x.classList.remove('active'));
   return S.generation;
  }
- function loopButton(){ $('loop').classList.toggle('running',S.looping);$('loop-label').textContent=S.looping?'Stop infinite loop':'Start infinite loop';$('loop').querySelector('.play-icon').textContent=S.looping?'■':'▶';$('transport-led').classList.toggle('on',S.looping);}
+ function loopButton(){
+  const preparing=!!S.background?.preparing,native=!!S.background?.url,live=S.looping&&!native;
+  $('loop').classList.toggle('running',S.looping);
+  $('loop').disabled=preparing;
+  $('loop-label').textContent=live?'Stop interactive playback':S.looping?'Pause infinite loop':preparing?'Preparing loop…':native?'Play infinite loop':'Prepare infinite loop';
+  $('loop').querySelector('.play-icon').textContent=S.looping?'■':'▶';
+  $('live-loop').textContent=live?'Stop live loop':'Start live loop';
+  $('transport-led').classList.toggle('on',S.looping);
+ }
  function stop(){clearTimeout(S.auto);S.auto=0;S.looping=false;cancelPlayback();loopButton();$('transport-status').textContent='STANDBY';if(S.current)drawInstruments(S.current.notes,[]);}
  function disposeBackground(){
   const bg=S.background;if(!bg)return;S.background=null;
@@ -77,6 +85,7 @@
   $('background-controls').hidden=true;$('prepare-background').textContent='Prepare lock-screen track';$('background-card').setAttribute('aria-busy','false');$('background-status').textContent='The prepared track repeats automatically. Prepare again for fresh random choices.';
   if(navigator.mediaSession){for(const action of ['play','pause','stop','seekto','seekbackward','seekforward'])try{navigator.mediaSession.setActionHandler(action,null);}catch(_){}try{navigator.mediaSession.metadata=null;navigator.mediaSession.playbackState='none';navigator.mediaSession.setPositionState?.();}catch(_){} }
   if(S.synth)updateAudioStatus(S.synth);else{$('audio-led').classList.remove('on');$('audio-status').textContent='READY WHEN YOU ARE';}
+  loopButton();
  }
  function invalidateBackground(){if(S.background){stop();toast('Settings changed. Prepare a new lock-screen track.');}}
  function passiveTiming(){return {bpm:Number($('bpm').value),style:$('phrasing').value,pause:Number($('interval-pause').value),gap:Number($('gap').value)};}
@@ -115,6 +124,7 @@
   if(S.background?.preparing){stop();return;}
   stop();const token=S.generation,bg={preparing:true,started:false};S.background=bg;
   $('prepare-background').textContent='Cancel preparation';$('background-card').setAttribute('aria-busy','true');$('background-status').textContent='Preparing your drill… keep Safari open until the Play button appears.';
+  loopButton();
   try{
    const rawRoot=S.rawRoot;S.rawRoot=Number($('root-note').value);
    const deterministic=$('root-mode').value==='fixed'&&(S.sequenceEnabled||$('selection-mode').value==='lock'&&$('direction').value!=='alternate'&&(S.size===2||$('step2rule').value!=='random'));
@@ -123,7 +133,7 @@
    if(token!==S.generation||S.background!==bg)return;
    bg.preparing=false;bg.track=track;bg.url=URL.createObjectURL(blob);const media=$('background-audio');media.src=bg.url;media.loop=true;media.load();
    try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(_){}
-   $('background-controls').hidden=false;$('play-background').textContent='Play background loop';$('prepare-background').textContent='Prepare new track';$('background-card').setAttribute('aria-busy','false');
+   $('background-controls').hidden=false;$('play-background').textContent='Play background loop';$('prepare-background').textContent='Prepare new track';$('background-card').setAttribute('aria-busy','false');loopButton();
    const seconds=Math.ceil(track.duration);bg.description=track.groups+' cycle'+(track.groups===1?'':'s')+' · '+Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0')+' track · repeats';$('background-status').textContent='Ready: '+bg.description+'. Tap Play to start listening.';S.current=track.segments[0].cycle;renderLCD(S.current);drawInstruments(S.current.notes,[]);backgroundSession();backgroundPosition();updateAudioStatus(S.synth);
   }catch(error){if(token===S.generation)throw error;}
  }
@@ -256,6 +266,12 @@
   playScheduled(cycle.notes,plan,token,betweenPairs?Number($('interval-pause').value):once?0:Number($('gap').value),finish);
  }
  async function startLoop(){stop();S.looping=true;S.iteration=0;S.rawRoot=Number($('root-note').value);loopButton();await runCycle();}
+ async function toggleMainLoop(){
+  if(S.background?.preparing)return;
+  if(S.background?.url){const media=$('background-audio');if(media.paused)await playBackground();else media.pause();return;}
+  if(S.looping){stop();return;}
+  await prepareBackground();
+ }
  function refreshControls(){
   $('classic-settings').hidden=S.sequenceEnabled;$('sequence-settings').hidden=!S.sequenceEnabled;
   const showPause=S.sequenceEnabled?S.sequence.length>1&&['disjoint','pairs'].includes($('sequence-style').value):S.size===3&&$('cell-connection').value==='disjoint';$('interval-pause-field').hidden=!showPause;$('interval-pause-value').textContent=Number($('interval-pause').value).toFixed(1)+' s';
@@ -433,7 +449,7 @@
   const unlockFromGesture=e=>{if(S.background||e.target.closest?.('#background-card'))return;if(e.type==='keydown'&&(e.repeat||e.ctrlKey||e.metaKey||e.altKey||![' ','Enter','r','R'].includes(e.key)))return;audio().catch(()=>{});};
   for(const event of ['touchend','click','keydown'])document.addEventListener(event,unlockFromGesture,{capture:true,passive:true});
   on('enable-audio','click',async()=>{stop();const token=S.generation;const synth=await audio(true);if(token!==S.generation)return;if(Number($('volume').value)===0){toast('Master volume is muted. Raise it to hear the sound test.');return;}synth.play(69,undefined,0.6,0.7,$('voice').value);toast('Sound test: A4 · 440 Hz.');});
-  on('loop','click',async()=>{if(S.looping)stop();else await startLoop();});on('once','click',async()=>{stop();S.iteration=0;await runCycle(true);});
+  on('loop','click',toggleMainLoop);on('live-loop','click',async()=>{if(S.looping&&!S.background)stop();else await startLoop();});on('once','click',async()=>{stop();S.iteration=0;await runCycle(true);});
   on('prepare-background','click',prepareBackground);on('stop-background','click',stop);
   on('play-background','click',()=>{const media=$('background-audio');if(!S.background?.url)return;if(media.paused)return playBackground();media.pause();});
   on('background-audio','play',()=>{
@@ -498,7 +514,7 @@
   document.addEventListener('keydown',safe(async e=>{
    if(e.key==='Escape'){stop();return;}if(e.repeat||e.ctrlKey||e.metaKey||e.altKey||$('help').open||e.target.matches('input,select,textarea,[contenteditable="true"]'))return;
    if(e.target.closest('button')&&[' ','Enter'].includes(e.key))return;
-   if(S.mode==='passive'&&e.code==='Space'){e.preventDefault();S.looping?stop():await startLoop();}
+   if(S.mode==='passive'&&e.code==='Space'){e.preventDefault();await toggleMainLoop();}
    else if(S.mode==='quiz'){
     if(e.code==='Space'||e.key.toLowerCase()==='r'){e.preventDefault();await replayQuestion();}
     else if(e.key==='Enter'){e.preventDefault();await newQuestion();}

@@ -24,7 +24,7 @@ async function verify(engine) {
         return original.apply(this, arguments);
       };
     });
-    await page.locator('#loop').click();
+    await page.locator('#live-loop').click();
     await page.waitForFunction(() => notes.length === 2);
     await page.evaluate(() => {
       Object.defineProperty(document, 'hidden', { configurable: true, value: true });
@@ -39,7 +39,7 @@ async function verify(engine) {
     const stoppedCount = await page.evaluate(() => notes.length);
     await page.waitForTimeout(1300);
     assert.equal(await page.evaluate(() => notes.length), stoppedCount);
-    assert.equal(await page.locator('#loop-label').textContent(), 'Start infinite loop');
+    assert.equal(await page.locator('#live-loop').textContent(), 'Start live loop');
     console.log('PASS', engine, 'interval cycles continue without animation frames and Stop cancels the next cycle');
   } finally {
     await browser.close();

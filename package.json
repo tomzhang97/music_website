@@ -12,7 +12,7 @@
     "test:mobile": "node tests/mobile-audio.cjs && node tests/mobile-sequence.cjs",
     "test:connections": "node tests/disjoint.cjs",
     "test:quiz-groups": "node tests/grouped-quiz.cjs",
-    "test:background": "node tests/background.cjs && node tests/background-race.cjs && node tests/background-playlist.cjs && node tests/loop-visibility.cjs"
+    "test:background": "node tests/background.cjs && node tests/background-race.cjs && node tests/background-playlist.cjs && node tests/loop-background.cjs && node tests/loop-visibility.cjs"
   },
   "devDependencies": {
     "playwright": "1.62.1"

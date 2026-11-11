@@ -10,8 +10,8 @@ const screenshots=path.resolve(process.env.QA_DIR||'test-results');fs.mkdirSync(
  await scenario('HTTP studio, instruments, loop cadence, stop and one-shot',async p=>{
   const requests=[];p.on('request',r=>requests.push(r.url()));await p.goto(base);assert.equal(await p.locator('[data-midi].piano-key').count(),37);assert.equal(await p.locator('.fret').count(),96);
   await p.getByLabel('Root transposition').selectOption('fixed');await p.getByLabel('Root / starting note').selectOption('60');await p.getByLabel('Speed',{exact:true}).fill('200');await p.getByLabel('Breath between cycles').fill('0.3');
-  await p.getByRole('button',{name:/Start infinite loop/}).click();await p.waitForFunction(()=>Number(document.getElementById('cycle-count').textContent)>=2,{},{timeout:6000});
-  await p.keyboard.press('Escape');assert.match(await p.locator('#loop-label').textContent(),/Start/);assert.equal(await p.locator('.piano-key.sounding').count(),0);
+  await p.getByRole('button',{name:/Start live loop/}).click();await p.waitForFunction(()=>Number(document.getElementById('cycle-count').textContent)>=2,{},{timeout:6000});
+  await p.keyboard.press('Escape');assert.match(await p.locator('#loop-label').textContent(),/Prepare/);assert.equal(await p.locator('.piano-key.sounding').count(),0);
   await p.getByRole('button',{name:/Play cycle once/}).click();await p.waitForFunction(()=>document.querySelector('.piano-key.sounding'));await p.waitForFunction(()=>document.getElementById('transport-status').textContent==='STANDBY');
   await p.getByRole('button',{name:/Open help/}).click();assert.equal(await p.locator('dialog').isVisible(),true);await p.getByRole('button',{name:'Let’s listen'}).click();
   assert.ok(requests.every(u=>u.startsWith(base)||u.startsWith('data:')),'External runtime request');await p.screenshot({path:path.join(screenshots,'desktop.png'),fullPage:true});
@@ -39,7 +39,7 @@ const screenshots=path.resolve(process.env.QA_DIR||'test-results');fs.mkdirSync(
  await scenario('360px layout, high-note auto-centering, gestures and focused controls',async p=>{
   await p.goto(base);assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=360));await p.getByLabel('Root transposition').selectOption('fixed');await p.getByLabel('Root / starting note').selectOption('72');await p.getByLabel('Speed',{exact:true}).fill('200');await p.getByRole('button',{name:/Play cycle once/}).click();await p.waitForFunction(()=>document.getElementById('piano-scroll').scrollLeft>300);await p.waitForFunction(()=>document.getElementById('guitar-scroll').scrollLeft>300);await p.keyboard.press('Escape');
   const box=await p.locator('#piano-scroll').boundingBox();await p.mouse.move(box.x+100,box.y+110);await p.mouse.down();await p.mouse.move(box.x+30,box.y+110,{steps:5});await p.mouse.up();assert.equal(await p.locator('.piano-key.sounding').count(),0);
-  await p.locator('#bpm').focus();await p.keyboard.press('Space');assert.match(await p.locator('#loop-label').textContent(),/Start/);await p.locator('#workspace').click({position:{x:1,y:1}});await p.screenshot({path:path.join(screenshots,'mobile.png'),fullPage:true});
+  await p.locator('#bpm').focus();await p.keyboard.press('Space');assert.match(await p.locator('#loop-label').textContent(),/Prepare/);await p.locator('#workspace').click({position:{x:1,y:1}});await p.screenshot({path:path.join(screenshots,'mobile.png'),fullPage:true});
  },{viewport:{width:360,height:800},isMobile:true,hasTouch:true});
  await scenario('fret auditions retain the clicked string and fret; touch controls are at least 44px tall',async p=>{
   await p.goto(base);await p.getByRole('button',{name:'String 6, fret 12, E3',exact:true}).click();await p.waitForFunction(()=>document.getElementById('guitar-info').textContent.includes('String 6 · Fret 12'));
