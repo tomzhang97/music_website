@@ -9,7 +9,7 @@
    quizSounds.set(`${interval.st}:${direction}`,{interval,direction});
   }
  }
- const S={mode:'passive',size:2,quizSize:2,sequenceEnabled:false,sequence:[{interval:2,direction:'up'},{interval:7,direction:'up'}],pool:new Set(T.intervals.filter(x=>x.st<=12).map(x=>x.st)),looping:false,iteration:0,cycles:0,rawRoot:60,current:null,question:null,active:[],generation:0,raf:0,auto:0,session:new T.QuizSession(),synth:null};
+ const S={mode:'passive',size:2,quizSize:2,sequenceEnabled:false,sequence:[{interval:2,direction:'up'},{interval:7,direction:'up'}],pool:new Set(T.intervals.filter(x=>x.st<=12).map(x=>x.st)),looping:false,iteration:0,cycles:0,rawRoot:60,current:null,question:null,active:[],generation:0,raf:0,cycleCue:null,auto:0,session:new T.QuizSession(),synth:null};
  S.quizGroups={named:['2:up','1:up'],others:['6:up','4:up']};
  const settingIds=['voice','volume','view','ghosts','interval','selection-mode','direction','step2rule','step2interval','step2direction','reference','root-mode','root-note','repetitions','bpm','gap','phrasing','speech','blind','choice-count','auto-advance','quiz-up','quiz-down','quiz-harmonic','quiz-others-source','sequence-style','cell-connection','interval-pause'];
  let toastTimer=0,lastCenter='',dragStart=null,dragMoved=false;
@@ -52,7 +52,23 @@
  // Calling the handler immediately preserves Safari's transient user activation.
  const safe=fn=>(...args)=>{try{return Promise.resolve(fn(...args)).catch(failed);}catch(error){failed(error);}};
  function on(id,event,fn){$(id).addEventListener(event,safe(fn));}
- function cancelPlayback(){S.generation++;cancelAnimationFrame(S.raf);disposeBackground();if(S.synth)S.synth.stopAll();if('speechSynthesis'in window)window.speechSynthesis.cancel();S.active=[];$('breath-progress').style.transform='scaleX(0)';$$('.note-chip').forEach(x=>x.classList.remove('active'));return S.generation;}
+ function cancelPlayback(){
+  S.generation++;
+  cancelAnimationFrame(S.raf);
+  if(S.cycleCue){
+   S.cycleCue.onended=null;
+   S.cycleCue.stop();
+   S.cycleCue.disconnect();
+   S.cycleCue=null;
+  }
+  disposeBackground();
+  if(S.synth)S.synth.stopAll();
+  if('speechSynthesis'in window)window.speechSynthesis.cancel();
+  S.active=[];
+  $('breath-progress').style.transform='scaleX(0)';
+  $$('.note-chip').forEach(x=>x.classList.remove('active'));
+  return S.generation;
+ }
  function loopButton(){ $('loop').classList.toggle('running',S.looping);$('loop-label').textContent=S.looping?'Stop infinite loop':'Start infinite loop';$('loop').querySelector('.play-icon').textContent=S.looping?'■':'▶';$('transport-led').classList.toggle('on',S.looping);}
  function stop(){clearTimeout(S.auto);S.auto=0;S.looping=false;cancelPlayback();loopButton();$('transport-status').textContent='STANDBY';if(S.current)drawInstruments(S.current.notes,[]);}
  function disposeBackground(){
@@ -184,8 +200,31 @@
  }
  function playScheduled(notes,plan,token,gap=0,onFinish){
   const synth=S.synth,start=synth.ctx.currentTime+0.045;let last='',lastPart=-2;S.current={...S.current,notes};
+  const end=start+plan.duration+gap;
   for(const e of plan.events)for(const i of e.indices)synth.play(notes[i],start+e.at,e.length,e.velocity,$('voice').value);
   drawInstruments(notes,[]);
+  function finish(){
+   if(token!==S.generation)return;
+   cancelAnimationFrame(S.raf);
+   S.active=[];
+   drawInstruments(notes,[]);
+   if(onFinish)onFinish();
+   else if(S.mode==='passive')$('transport-status').textContent='STANDBY';
+  }
+  if(onFinish){
+   // Advance on the audio clock even when a hidden page stops drawing frames.
+   const cue=synth.ctx.createBufferSource();
+   cue.buffer=synth.ctx.createBuffer(1,1,synth.ctx.sampleRate);
+   cue.connect(synth.master);
+   S.cycleCue=cue;
+   cue.onended=()=>{
+    if(S.cycleCue!==cue)return;
+    S.cycleCue=null;
+    cue.disconnect();
+    finish();
+   };
+   cue.start(end);
+  }
   function tick(){if(token!==S.generation)return;const elapsed=synth.ctx.currentTime-start;
    const indices=[...new Set(plan.events.filter(e=>elapsed>=e.at&&elapsed<e.at+e.length).flatMap(e=>e.indices))];
    if(indices.join(',')!==last){last=indices.join(',');S.active=indices;drawInstruments(notes,indices);$$('.note-chip').forEach(el=>el.classList.toggle('active',indices.includes(Number(el.dataset.noteIndex))));}
@@ -196,7 +235,7 @@
     $('breath-progress').style.transform=`scaleX(${Math.max(0,Math.min(1,progress))})`;
     if(plan.segments){const part=plan.segments.find(s=>elapsed>=s.start&&elapsed<s.end)?.index??-1;if(part!==lastPart){lastPart=part;$$('[data-sequence-row]').forEach(row=>row.classList.toggle('playing',!!S.current.sequence&&Number(row.dataset.sequenceRow)===part));}}
    }
-   if(elapsed>=plan.duration+gap){S.active=[];drawInstruments(notes,[]);if(onFinish)onFinish();else if(S.mode==='passive')$('transport-status').textContent='STANDBY';return;}
+   if(synth.ctx.currentTime>=end){if(!onFinish)finish();return;}
    S.raf=requestAnimationFrame(tick);
   }tick();
  }
