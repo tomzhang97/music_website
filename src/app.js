@@ -11,26 +11,178 @@
  }
  const S={mode:'passive',size:2,quizSize:2,sequenceEnabled:false,sequence:[{interval:2,direction:'up'},{interval:7,direction:'up'}],pool:new Set(T.intervals.filter(x=>x.st<=12).map(x=>x.st)),looping:false,iteration:0,cycles:0,rawRoot:60,current:null,question:null,active:[],generation:0,raf:0,cycleCue:null,auto:0,session:new T.QuizSession(),synth:null};
  S.quizGroups={named:['2:up','1:up'],others:['6:up','4:up']};
- const settingIds=['voice','volume','view','ghosts','interval','selection-mode','direction','step2rule','step2interval','step2direction','reference','root-mode','root-note','repetitions','bpm','gap','phrasing','speech','blind','choice-count','auto-advance','quiz-up','quiz-down','quiz-harmonic','quiz-others-source','sequence-style','cell-connection','interval-pause'];
+ S.practice={lastLoop:null,presets:[],history:{passive:[],quiz:[]}};
+ S.quizListening=false;
+ S.quizSpeechPrimed=false;
+ const audioSettings=['voice','volume','bpm','gap'];
+ const passiveSettings=[...audioSettings,'interval','selection-mode','direction','step2rule','step2interval','step2direction','reference','root-mode','root-note','repetitions','phrasing','speech','sequence-style','cell-connection','interval-pause'];
+ const quizSettings=[...audioSettings,'blind','choice-count','auto-advance','quiz-up','quiz-down','quiz-harmonic','quiz-others-source','quiz-announce','quiz-repeats'];
+ const settingIds=[...new Set([...passiveSettings,...quizSettings,'view','ghosts'])];
  let toastTimer=0,lastCenter='',dragStart=null,dragMoved=false;
  function toast(message,error=false){clearTimeout(toastTimer);$('toast').textContent=message;$('toast').classList.toggle('error',error);$('toast').hidden=false;toastTimer=setTimeout(()=>$('toast').hidden=true,4200);}
- function save(){try{const settings={};settingIds.forEach(id=>settings[id]=$(id).type==='checkbox'?$(id).checked:$(id).value);localStorage.setItem('interval-01-v1',JSON.stringify({settings,size:S.size,quizSize:S.quizSize,quizGroups:S.quizGroups,sequenceEnabled:S.sequenceEnabled,sequence:S.sequence,pool:[...S.pool],stats:{total:S.session.total,correct:S.session.correct,streak:S.session.streak,best:S.session.best,byInterval:S.session.byInterval}}));}catch(_){} }
- function restore(){try{
-  const data=JSON.parse(localStorage.getItem('interval-01-v1')||'null');if(!data||typeof data!=='object')return;
-  settingIds.forEach(id=>{const el=$(id),v=data.settings?.[id];if(el.type==='checkbox'){if(typeof v==='boolean')el.checked=v;}else if(el.tagName==='SELECT'){if([...el.options].some(o=>o.value===String(v)))el.value=String(v);}else if(Number.isFinite(Number(v))&&v!==null){el.value=String(Math.max(Number(el.min),Math.min(Number(el.max),Number(v))));}});
-  if(data.settings?.['sequence-style']==='pairs'&&data.settings?.['interval-pause']===undefined){const previousGap=Number(data.settings.gap);if(Number.isFinite(previousGap)&&previousGap>=0.2&&previousGap<=6)$('interval-pause').value=String(previousGap);}
-  if(data.size===3)S.size=3;if(data.quizSize===3)S.quizSize=3;S.sequenceEnabled=data.sequenceEnabled===true;if(data.sequence)S.sequence=T.normalizeSequence(data.sequence);
-  if(data.quizSize==='grouped')S.quizSize='grouped';
+ function readSettings(ids){return Object.fromEntries(ids.map(id=>[id,$(id).type==='checkbox'?$(id).checked:$(id).value]));}
+ function applySettings(settings,ids){
+  for(const id of ids){
+   const control=$(id),value=settings?.[id];
+   if(control.type==='checkbox'){
+    if(typeof value==='boolean')control.checked=value;
+   }else if(control.tagName==='SELECT'){
+    const midi=Number(value);
+    if(id==='root-note'&&Number.isInteger(midi)&&midi>=48&&midi<=84&&![...control.options].some(option=>Number(option.value)===midi)){
+     control.add(new Option(T.noteName(midi),midi));
+    }
+    if([...control.options].some(option=>option.value===String(value)))control.value=String(value);
+   }else if(value!=null&&value!==''&&Number.isFinite(Number(value))){
+    control.value=String(Math.max(Number(control.min),Math.min(Number(control.max),Number(value))));
+   }
+  }
+ }
+ function applyQuizConfig(config){
+  if([2,3,'grouped'].includes(config.quizSize))S.quizSize=config.quizSize;
   for(const group of ['named','others']){
-   const saved=data.quizGroups?.[group];
-   if(Array.isArray(saved))S.quizGroups[group]=[...new Set(saved.filter(key=>quizSounds.has(key)))];
+   const sounds=config.quizGroups?.[group];
+   if(Array.isArray(sounds))S.quizGroups[group]=[...new Set(sounds.filter(key=>quizSounds.has(key)))];
   }
   S.quizGroups.others=S.quizGroups.others.filter(key=>!S.quizGroups.named.includes(key));
-  if(Array.isArray(data.pool)){const valid=data.pool.filter(n=>T.intervals.some(i=>i.st===n));if(valid.length)S.pool=new Set(valid);}
+  if(!['quiz-up','quiz-down','quiz-harmonic'].some(id=>$(id).checked))$('quiz-up').checked=true;
+ }
+ function applyPassiveConfig(config){
+  if([2,3].includes(config.size))S.size=config.size;
+  if(typeof config.sequenceEnabled==='boolean')S.sequenceEnabled=config.sequenceEnabled;
+  if(Array.isArray(config.sequence))S.sequence=T.normalizeSequence(config.sequence);
+ }
+ function applyPool(pool){
+  if(!Array.isArray(pool))return;
+  const valid=pool.filter(n=>T.intervals.some(interval=>interval.st===n));
+  if(valid.length)S.pool=new Set(valid);
+ }
+ function save(){
+  try{
+   const {total,correct,streak,best,byInterval}=S.session;
+   localStorage.setItem('interval-01-v1',JSON.stringify({
+    settings:readSettings(settingIds),size:S.size,quizSize:S.quizSize,quizGroups:S.quizGroups,
+    sequenceEnabled:S.sequenceEnabled,sequence:S.sequence,pool:[...S.pool],practice:S.practice,
+    stats:{total,correct,streak,best,byInterval}
+   }));
+  }catch(_){}
+ }
+ function isPracticeConfig(config){return Boolean(config?.settings&&typeof config.settings==='object');}
+ function restore(){try{
+  const data=JSON.parse(localStorage.getItem('interval-01-v1')||'null');if(!data||typeof data!=='object')return;
+  applySettings(data.settings,settingIds);
+  if(data.settings?.['sequence-style']==='pairs'&&data.settings?.['interval-pause']===undefined){const previousGap=Number(data.settings.gap);if(Number.isFinite(previousGap)&&previousGap>=0.2&&previousGap<=6)$('interval-pause').value=String(previousGap);}
+  applyQuizConfig(data);applyPassiveConfig(data);applyPool(data.pool);
+  const practice=data.practice;
+  if(Array.isArray(practice?.presets)){
+   S.practice.presets=practice.presets.filter(preset=>typeof preset?.name==='string'&&isPracticeConfig(preset.config));
+  }
+  for(const mode of ['passive','quiz']){
+   const recent=practice?.history?.[mode];
+   if(Array.isArray(recent))S.practice.history[mode]=recent.filter(isPracticeConfig).slice(0,5);
+  }
+  if(isPracticeConfig(practice?.lastLoop)){
+   S.practice.lastLoop=practice.lastLoop;
+   applySettings(practice.lastLoop.settings,passiveSettings);
+   applyPassiveConfig(practice.lastLoop);applyPool(practice.lastLoop.pool);
+  }
   const st=data.stats;if(st&&Number.isInteger(st.total)&&st.total>=0&&Number.isInteger(st.correct)&&st.correct>=0&&st.correct<=st.total){S.session.total=st.total;S.session.correct=st.correct;S.session.best=Number.isInteger(st.best)&&st.best>=0?st.best:0;S.session.streak=Number.isInteger(st.streak)&&st.streak>=0?st.streak:0;
    if(st.byInterval&&typeof st.byInterval==='object')T.intervals.forEach(i=>{const v=st.byInterval[i.st];if(v&&Number.isInteger(v.total)&&v.total>=0&&Number.isInteger(v.correct)&&v.correct>=0&&v.correct<=v.total)S.session.byInterval[i.st]={total:v.total,correct:v.correct};});
   }
  }catch(_){} }
+ function practiceConfig(mode){
+  if(mode==='quiz')return {
+   settings:readSettings(quizSettings),quizSize:S.quizSize,
+   quizGroups:{named:[...S.quizGroups.named],others:[...S.quizGroups.others]},pool:[...S.pool]
+  };
+  return {
+   settings:readSettings(passiveSettings),size:S.size,sequenceEnabled:S.sequenceEnabled,
+   sequence:S.sequence.map(step=>({...step})),pool:[...S.pool]
+  };
+ }
+ function rememberPractice(mode,config,loop=false){
+  const history=S.practice.history[mode],key=JSON.stringify(config);
+  const sameAsLastLoop=JSON.stringify(S.practice.lastLoop)===key;
+  if(JSON.stringify(history[0])===key&&(!loop||sameAsLastLoop))return;
+  S.practice.history[mode]=[config,...history.filter(item=>JSON.stringify(item)!==key)].slice(0,5);
+  if(loop)S.practice.lastLoop=config;
+  renderPracticeLibrary();
+  save();
+ }
+ function practiceLabel(mode,config){
+  const settings=config.settings;
+  if(mode==='quiz'){
+   const format=config.quizSize==='grouped'?'Named + Others':config.quizSize===3?'3-note cell':'2-note quiz';
+   const directions=Object.keys(quizDirections).filter(direction=>settings['quiz-'+direction]).map(direction=>quizDirections[direction]).join(' / ');
+   const choices=settings['choice-count']==='0'?'all choices':`${settings['choice-count']} choices`;
+   const answerSetup=config.quizSize==='grouped'?`${config.quizGroups?.named?.length||0} named, ${settings['quiz-others-source']==='random'?'random':'selected'} Others`:choices;
+   const listening=settings['quiz-announce']?`${settings['quiz-repeats']} plays`:settings.blind?'notes hidden':'notes shown';
+   return [format,answerSetup,config.quizSize==='grouped'?null:directions,listening,`${settings.bpm} BPM`].filter(Boolean).join(' · ');
+  }
+  const drill=config.sequenceEnabled
+   ?T.normalizeSequence(config.sequence).map(step=>`${T.info(step.interval).short} ${step.direction==='down'?'↓':'↑'}`).join(' + ')
+   :config.size===3?'3-note cell':T.info(Number(settings.interval)).name;
+  const style=config.sequenceEnabled?settings['sequence-style']:quizDirections[settings.direction]||settings.direction;
+  const root=settings['root-mode']==='fixed'?T.noteName(Number(settings['root-note'])):null;
+  return [drill,style,root,`${settings.bpm} BPM`].filter(Boolean).join(' · ');
+ }
+ function renderPracticeLibrary(){
+  for(const mode of ['passive','quiz']){
+   const list=$(mode==='quiz'?'quiz-history':'interval-history');
+   const history=S.practice.history[mode];
+   list.replaceChildren();
+   history.forEach((config,index)=>{
+    const row=document.createElement('li');
+    const button=document.createElement('button');
+    button.type='button';button.className='secondary';button.dataset.historyIndex=String(index);
+    button.textContent=practiceLabel(mode,config);
+    row.append(button);list.append(row);
+   });
+   $(mode==='quiz'?'quiz-history-empty':'interval-history-empty').hidden=history.length>0;
+  }
+  const list=$('quiz-presets');list.replaceChildren();
+  const presets=S.practice.presets.map((preset,index)=>({preset,index}));
+  presets.sort((a,b)=>Number(Boolean(b.preset.starred))-Number(Boolean(a.preset.starred)));
+  for(const {preset,index} of presets){
+   const row=document.createElement('li');
+   for(const [action,label] of [['load',preset.name],['star',preset.starred?'★':'☆'],['remove','×']]){
+    const button=document.createElement('button');
+    button.type='button';button.className='secondary';button.dataset.presetAction=action;
+    button.dataset.presetIndex=String(index);button.textContent=label;
+    if(action==='star'){
+     button.setAttribute('aria-label',`Star preset ${preset.name}`);
+     button.setAttribute('aria-pressed',String(Boolean(preset.starred)));
+    }else if(action==='remove')button.setAttribute('aria-label',`Remove preset ${preset.name}`);
+    row.append(button);
+   }
+   list.append(row);
+  }
+  $('quiz-presets-empty').hidden=presets.length>0;
+ }
+ function loadPractice(mode,config){
+  stop();
+  applySettings(config.settings,mode==='quiz'?quizSettings:passiveSettings);
+  applyPool(config.pool);
+  if(mode==='quiz'){
+   applyQuizConfig(config);resetQuizQuestion();renderQuizGroups();
+  }else{
+   applyPassiveConfig(config);renderSequence();
+  }
+  if(S.synth)S.synth.volume(Number($('volume').value)/100);
+  refreshControls();renderPool();renderStats();
+  if(mode==='passive')preview();
+  save();
+ }
+ function saveQuizPreset(event){
+  event.preventDefault();
+  const config=practiceConfig('quiz');
+  const input=$('quiz-preset-name');
+  const name=input.value.trim()||practiceLabel('quiz',config);
+  const existing=S.practice.presets.find(preset=>preset.name===name);
+  if(existing)existing.config=config;
+  else S.practice.presets.push({name,config,starred:false});
+  input.value='';
+  renderPracticeLibrary();save();toast('Quiz preset saved.');
+ }
  function updateAudioStatus(synth){
   if(S.synth!==synth)return;
   if(S.background?.url){const playing=S.background.started&&!$('background-audio').paused;$('audio-led').classList.toggle('on',playing);$('audio-status').textContent=playing?'BACKGROUND AUDIO PLAYING':'LOCK-SCREEN TRACK READY';return;}
@@ -54,6 +206,9 @@
  function on(id,event,fn){$(id).addEventListener(event,safe(fn));}
  function cancelPlayback(){
   S.generation++;
+  S.quizListening=false;
+  $('stop-quiz-listening').hidden=true;
+  $('quiz-listening-status').hidden=true;
   cancelAnimationFrame(S.raf);
   if(S.cycleCue){
    S.cycleCue.onended=null;
@@ -122,7 +277,7 @@
  function animateBackground(){cancelAnimationFrame(S.raf);const tick=()=>{if(!S.background?.url||$('background-audio').paused)return;syncBackground();S.raf=requestAnimationFrame(tick);};tick();}
  async function prepareBackground(){
   if(S.background?.preparing){stop();return;}
-  stop();const token=S.generation,bg={preparing:true,started:false};S.background=bg;
+  stop();const token=S.generation,bg={preparing:true,started:false,config:practiceConfig('passive')};S.background=bg;
   $('prepare-background').textContent='Cancel preparation';$('background-card').setAttribute('aria-busy','true');$('background-status').textContent='Preparing your drill… keep Safari open until the Play button appears.';
   loopButton();
   try{
@@ -252,9 +407,19 @@
  function speak(text,token){return new Promise(resolve=>{if(!('speechSynthesis'in window)||!('SpeechSynthesisUtterance'in window)){resolve();return;}
   const utterance=new SpeechSynthesisUtterance(text);utterance.rate=0.88;let finished=false;const done=()=>{if(finished)return;finished=true;clearTimeout(timer);resolve();};const timer=setTimeout(()=>{if(token===S.generation)window.speechSynthesis.cancel();done();},6500);utterance.onend=done;utterance.onerror=done;window.speechSynthesis.speak(utterance);
  });}
+ function primeQuizSpeech(){
+  if(S.quizSpeechPrimed||!window.speechSynthesis||!window.SpeechSynthesisUtterance||navigator.userActivation?.isActive===false)return;
+  // Safari requires the first speech request to happen during the user's tap.
+  const utterance=new SpeechSynthesisUtterance('Ready');
+  utterance.volume=0;
+  window.speechSynthesis.speak(utterance);
+  window.speechSynthesis.cancel();
+  S.quizSpeechPrimed=true;
+ }
  function spoken(cycle){return cycle.steps.map(s=>T.info(s).name+', '+(s<0?'descending':'ascending')).join('. Then ');}
  async function runCycle(once=false){
   const token=cancelPlayback();await audio();if(token!==S.generation)return;
+  rememberPractice('passive',practiceConfig('passive'),!once);
   const cycle=makePassive(S.iteration);S.current=cycle;if(!cycle.sequence||cycle.sequence.style!=='pairs'||cycle.sequence.index===0)S.cycles++;renderLCD(cycle);drawInstruments(cycle.notes,[]);
   if($('speech').value==='before'){$('transport-status').textContent='ANNOUNCING';await speak(spoken(cycle),token);if(token!==S.generation)return;}
   const plan=StudioTrack.phrase({...cycle,disjoint:isDisjoint(cycle)},passiveTiming());
@@ -288,6 +453,8 @@
   $('quiz-directions-label').textContent=grouped?'Random Others directions':'Allowed directions';
   $('quiz-choice-count').hidden=grouped;
   $('harmonic').hidden=S.question?Boolean(S.question.group):grouped;
+  $('quiz-repeat-field').hidden=!$('quiz-announce').checked;
+  if(!S.question)$('new-question').textContent=$('quiz-announce').checked?'▶ Start hands-free quiz':'▶ Start ear quiz';
   $('instruments').className='instruments '+($('view').value==='piano'?'piano-only':$('view').value==='guitar'?'guitar-only':'');
   $('bpm-value').textContent=$('bpm').value;$('beat-ms').textContent=Math.round(60000/Number($('bpm').value))+' ms / beat';$('gap-value').textContent=Number($('gap').value).toFixed(1)+' s';$('volume-value').textContent=$('volume').value+'%';
   $$('[data-bpm]').forEach(b=>b.classList.toggle('selected',b.dataset.bpm===$('bpm').value));
@@ -329,6 +496,17 @@
   $('score').textContent=S.session.correct+' / '+S.session.total;$('accuracy').innerHTML=(S.session.total?S.session.accuracy:'—')+'<small>%</small>';$('streak').textContent=S.session.streak;$('best').textContent=S.session.best;
   const intervals=T.intervals.filter(x=>S.pool.has(x.st)||S.session.byInterval[x.st]);$('interval-progress').innerHTML=intervals.map(i=>{const row=S.session.byInterval[i.st],pct=row?.total?Math.round(row.correct/row.total*100):0;return `<div class="progress-row"><div><span>${i.short}</span><span>${row?.total?pct+'% · '+row.correct+'/'+row.total:'—'}</span></div><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></div>`;}).join('');
  }
+ function resetQuizQuestion(){
+  S.question=null;
+  S.session.begin([]);
+  S.current={notes:[],steps:[]};
+  $('quiz-choices').replaceChildren();$('feedback').hidden=true;
+  $('replay').disabled=true;$('harmonic').disabled=true;
+  $('quiz-title').textContent='Let your ears lead.';
+  $('question-label').textContent='YOUR NEXT SMALL BREAKTHROUGH';
+  $('quiz-instruction').textContent='Listen to the notes, then name the distance between them.';
+  drawInstruments([],[]);
+ }
  async function newQuestion(){
   stop();
   const token=S.generation;
@@ -358,6 +536,7 @@
    c={size:S.quizSize,interval:T.pick(pool),direction,step2rule:'fixed',step2interval:T.pick(pool),
     step2direction:direction==='harmonic'?'up':T.pick(melodic),reference:'chain'};
   }
+  if($('quiz-announce').checked)primeQuizSpeech();
   await audio();
   if(token!==S.generation)return;
   const offsets=T.cellOffsets(c),root=fitVisible(T.pick([50,52,53,55,57,59,60,62,64]),offsets);
@@ -369,12 +548,15 @@
   $('harmonic').disabled=false;$('harmonic').hidden=Boolean(group);
   const cell=c.size===3;
   const format=group?'NAMED + OTHERS':cell?'3-NOTE CELL':'2-NOTE INTERVAL';
-  $('question-label').textContent='QUESTION '+String(S.session.total+1).padStart(2,'0')+' / '+format;
+  const questionLabel=$('quiz-announce').checked?'HANDS-FREE QUIZ':'QUESTION '+String(S.session.total+1).padStart(2,'0');
+  $('question-label').textContent=questionLabel+' / '+format;
   $('quiz-title').textContent=cell?'Two steps. One musical thought.':'What interval do you hear?';
   if(group)$('quiz-instruction').textContent='Listen for both the interval and its direction. Choose a named sound or Others.';
   else if(c.direction==='harmonic')$('quiz-instruction').textContent=cell?'The notes sound together. Identify the distance in each step.':'The notes sound together. Identify the distance.';
   else $('quiz-instruction').textContent=cell?'Listen to the three notes and identify each step.':`Listen to the ${quizDirections[c.direction]} pair.`;
-  renderChoices();await replayQuestion();
+  renderChoices();
+  rememberPractice('quiz',practiceConfig('quiz'));
+  await replayQuestion();
  }
  function renderChoices(){
   const q=S.question;if(!q)return;
@@ -390,7 +572,56 @@
    return `<div class="choice-column"><h3 class="choice-heading">${heading}</h3><div class="choice-grid">${buttons}</div></div>`;
   }).join('');
  }
- async function replayQuestion(harmonic=false){if(!S.question){await newQuestion();return;}clearTimeout(S.auto);S.auto=0;const token=cancelPlayback();await audio();if(token!==S.generation)return;S.current=S.question;playScheduled(S.question.notes,T.phrase(S.question.notes,Number($('bpm').value),'pure',harmonic||S.question.harmonic),token);}
+ function quizRepeatCount(){
+  return Math.max(1,Math.min(20,Math.trunc(Number($('quiz-repeats').value)||3)));
+ }
+ function quizAnswerName(question){
+  if(question.group){
+   const category=question.group.target==='others'?' (Others)':'';
+   return quizSoundName(question.group.key)+category;
+  }
+  return question.steps.map(step=>{
+   const direction=question.harmonic?'harmonic':step<0?'descending':'ascending';
+   return `${T.info(step).name} ${direction}`;
+  }).join('. Then ');
+ }
+ async function replayQuestion(harmonic=false){
+  const question=S.question;
+  if(!question){await newQuestion();return;}
+  clearTimeout(S.auto);S.auto=0;
+  const token=cancelPlayback();
+  const announce=$('quiz-announce').checked&&!S.session.done&&!harmonic;
+  if(announce)primeQuizSpeech();
+  await audio();
+  if(token!==S.generation)return;
+  S.current=question;
+  const plan=T.phrase(question.notes,Number($('bpm').value),'pure',harmonic||question.harmonic);
+  if(!announce||!$('quiz-announce').checked){
+   playScheduled(question.notes,plan,token);
+   return;
+  }
+  const repeats=quizRepeatCount(),gap=Number($('gap').value);
+  const status=$('quiz-listening-status');
+  let played=0;
+  S.quizListening=true;
+  status.hidden=false;$('stop-quiz-listening').hidden=false;
+  const playNext=()=>{
+   played++;
+   status.textContent=`Listening ${played} of ${repeats}`;
+   playScheduled(question.notes,plan,token,gap,afterRepeat);
+  };
+  const afterRepeat=safe(async()=>{
+   if(token!==S.generation)return;
+   if(played<repeats){playNext();return;}
+   // A reveal completes the question without scoring an attempt.
+   S.session.done=true;
+   renderQuizAnswer(question,null);
+   status.textContent='Answer revealed. Next question follows.';
+   await speak(`The answer is ${quizAnswerName(question)}.`,token);
+   if(token===S.generation)S.auto=setTimeout(safe(newQuestion),2000);
+  });
+  playNext();
+ }
  async function answer(step,key){
   const q=S.question;if(!q)return;
   const value=q.group?key:Number(key);
@@ -418,22 +649,32 @@
    return;
   }
   if(S.session.answers[step]!==null)return;
+  if(S.quizListening)cancelPlayback();
   const finished=S.session.answer(step,value);$$(`.choice[data-step="${step}"]`).forEach(b=>{const selected=b.dataset.choice===String(value);b.classList.toggle('chosen',selected);b.setAttribute('aria-pressed',String(selected));});
   if(!finished){$('quiz-instruction').textContent=`Step ${step+1} locked in. Now identify Step ${step===0?2:1}.`;return;}
   const correct=S.session.answers.every((a,i)=>a===S.session.targets[i]);
-  cancelPlayback();S.current=S.question;drawInstruments(S.question.notes,[]);
+  cancelPlayback();
+  renderQuizAnswer(q,correct);
+  renderStats();save();
+  if(correct&&$('auto-advance').checked)S.auto=setTimeout(safe(newQuestion),2000);
+ }
+ function renderQuizAnswer(q,correct){
+  S.current=q;drawInstruments(q.notes,[]);
   $$('.choice').forEach(b=>{const col=Number(b.dataset.step),v=b.dataset.choice;const right=v===String(S.session.targets[col]);b.classList.remove('chosen');b.classList.toggle('correct',right);b.classList.toggle('wrong',v===String(S.session.answers[col])&&!right);});
-  $('feedback').className='feedback'+(correct?'':' wrong-feedback');$('feedback').hidden=false;
+  $('feedback').className='feedback'+(correct===false?' wrong-feedback':'');$('feedback').hidden=false;
+  const heading=correct===null?'Answer revealed':correct?'✓ You heard it.':'Keep that sound in mind.';
   let explanation='A little more connection, every time.';
-  if(q.group){
-   const category=q.group.target==='others'?' (Others)':'';
-   explanation=`You chose ${quizSoundName(value)}. The sound was ${quizSoundName(q.group.key)}${category}.`;
+  if(correct===null){
+   explanation=`The sound was ${quizAnswerName(q)}.`;
+  }else if(q.group){
+   explanation=`You chose ${quizSoundName(S.session.answers[0])}. The sound was ${quizAnswerName(q)}.`;
   }else if(!correct){
    explanation=`Your answer was ${S.session.answers.map(a=>T.info(a).name).join(' + ')}. The interval was ${q.steps.map(s=>T.info(s).name).join(' + ')}.`;
   }
-  $('feedback').innerHTML=`<h3>${correct?'✓ You heard it.':'Keep that sound in mind.'}</h3><p>${explanation}</p><div class="feedback-notes">${q.notes.map(T.noteName).join(' → ')}</div><p>${q.steps.map(s=>`${s>0?'+':''}${s} semitones · ${Math.pow(2,Math.abs(s)/12).toFixed(4)}× in 12-TET · ${T.info(s).ratio} reference ratio<br>Song cue: ${s<0?T.info(s).down:T.info(s).up}`).join('<br>')}</p><p>Tap any answer to compare it from the same starting note.</p><button id="handoff">∞ Loop this ${q.steps.length===2?'cell':'interval'} in Passive Listening ↗</button>`;
-  $('handoff').addEventListener('click',safe(handoff));$('quiz-title').textContent=correct?'That’s the connection.':'One step closer.';$('quiz-instruction').textContent='The notes are revealed. Compare the sounds, or try the next question.';renderStats();save();
-  if(correct&&$('auto-advance').checked)S.auto=setTimeout(safe(newQuestion),2000);
+  $('feedback').innerHTML=`<h3>${heading}</h3><p>${explanation}</p><div class="feedback-notes">${q.notes.map(T.noteName).join(' → ')}</div><p>${q.steps.map(s=>`${s>0?'+':''}${s} semitones · ${Math.pow(2,Math.abs(s)/12).toFixed(4)}× in 12-TET · ${T.info(s).ratio} reference ratio<br>Song cue: ${s<0?T.info(s).down:T.info(s).up}`).join('<br>')}</p><p>Tap any answer to compare it from the same starting note.</p><button id="handoff">∞ Loop this ${q.steps.length===2?'cell':'interval'} in Passive Listening ↗</button>`;
+  $('handoff').addEventListener('click',safe(handoff));
+  $('quiz-title').textContent=correct===null?quizAnswerName(q):correct?'That’s the connection.':'One step closer.';
+  $('quiz-instruction').textContent='The notes are revealed. Compare the sounds, or try the next question.';
  }
  async function handoff(){
   const q=S.question;if(!q)return;S.sequenceEnabled=false;S.size=q.notes.length;$('selection-mode').value='lock';$('interval').value=Math.abs(q.steps[0]);$('direction').value=q.harmonic?'harmonic':q.steps[0]<0?'down':'up';$('root-mode').value='fixed';
@@ -445,7 +686,7 @@
   for(const id of ['interval','step2interval','quiz-sound-interval'])$(id).innerHTML=T.intervals.map(i=>`<option value="${i.st}">${i.short} · ${i.name}</option>`).join('');$('interval').value='7';$('step2interval').value='10';
   for(let m=48;m<=72;m++)$('root-note').add(new Option(T.noteName(m),m));$('root-note').value='60';
   restore();if(!['quiz-up','quiz-down','quiz-harmonic'].some(id=>$(id).checked))$('quiz-up').checked=true;
-  buildInstruments();renderSequence();renderQuizGroups();refreshControls();renderPool();renderStats();preview();
+  buildInstruments();renderSequence();renderQuizGroups();renderPracticeLibrary();refreshControls();renderPool();renderStats();preview();
   const unlockFromGesture=e=>{if(S.background||e.target.closest?.('#background-card'))return;if(e.type==='keydown'&&(e.repeat||e.ctrlKey||e.metaKey||e.altKey||![' ','Enter','r','R'].includes(e.key)))return;audio().catch(()=>{});};
   for(const event of ['touchend','click','keydown'])document.addEventListener(event,unlockFromGesture,{capture:true,passive:true});
   on('enable-audio','click',async()=>{stop();const token=S.generation;const synth=await audio(true);if(token!==S.generation)return;if(Number($('volume').value)===0){toast('Master volume is muted. Raise it to hear the sound test.');return;}synth.play(69,undefined,0.6,0.7,$('voice').value);toast('Sound test: A4 · 440 Hz.');});
@@ -461,6 +702,7 @@
   });
   on('background-audio','playing',()=>{
    if(!S.background?.url||$('background-audio').paused)return;
+   if(!S.background.started)rememberPractice('passive',S.background.config,true);
    S.background.started=true;
    $('background-status').textContent='Playing: '+S.background.description+'. You can lock the screen or switch apps.';
    if(S.synth?.ctx.state==='running')S.synth.ctx.suspend().catch(()=>{});
@@ -479,8 +721,10 @@
    else if(id==='volume'){if(S.synth)S.synth.volume(Number($('volume').value)/100);}
    else if(['view','ghosts','blind'].includes(id)){if(S.current)drawInstruments(S.current.notes,S.active);}
    else if(id==='auto-advance'&&!$('auto-advance').checked){clearTimeout(S.auto);S.auto=0;}
-   else if(id.startsWith('quiz-')){if(!['quiz-up','quiz-down','quiz-harmonic'].some(x=>$(x).checked)){$(id).checked=true;toast('Keep at least one direction enabled.');}}
-   else if(!['auto-advance','choice-count'].includes(id)&&S.mode==='passive'){if(S.looping){S.iteration=0;await runCycle();}else{cancelPlayback();preview();}}
+   else if(id==='quiz-announce'&&!$('quiz-announce').checked&&S.quizListening)stop();
+   else if(id==='quiz-repeats')$(id).value=String(quizRepeatCount());
+   else if(['quiz-up','quiz-down','quiz-harmonic'].includes(id)){if(!['quiz-up','quiz-down','quiz-harmonic'].some(x=>$(x).checked)){$(id).checked=true;toast('Keep at least one direction enabled.');}}
+   else if(!id.startsWith('quiz-')&&!['auto-advance','choice-count'].includes(id)&&S.mode==='passive'){if(S.looping){S.iteration=0;await runCycle();}else{cancelPlayback();preview();}}
    save();
   }));
   $$('[data-size]').forEach(b=>b.addEventListener('click',safe(async()=>{invalidateBackground();S.sequenceEnabled=b.dataset.size==='sequence';if(!S.sequenceEnabled)S.size=Number(b.dataset.size);refreshControls();if(S.looping){S.iteration=0;await runCycle();}else{cancelPlayback();preview();}save();})));
@@ -508,8 +752,31 @@
   $$('[data-pool]').forEach(b=>b.addEventListener('click',()=>{invalidateBackground();S.pool=new Set(poolPresets()[b.dataset.pool]);renderPool();renderStats();save();}));
   $('pool').addEventListener('click',e=>{const b=e.target.closest('[data-pool-note]');if(!b)return;const n=Number(b.dataset.poolNote);if(S.pool.has(n)){if(S.pool.size===1){toast('Keep at least one interval in your pool.');return;}invalidateBackground();S.pool.delete(n);}else{invalidateBackground();S.pool.add(n);}renderPool();renderStats();save();});
   on('new-question','click',newQuestion);on('replay','click',()=>replayQuestion());on('harmonic','click',()=>replayQuestion(true));
+  on('stop-quiz-listening','click',stop);
+  on('save-quiz-preset','submit',saveQuizPreset);
+  on('quiz-presets','click',event=>{
+   const button=event.target.closest('[data-preset-action]');
+   if(!button)return;
+   const index=Number(button.dataset.presetIndex),preset=S.practice.presets[index];
+   if(button.dataset.presetAction==='load'){loadPractice('quiz',preset.config);return;}
+   if(button.dataset.presetAction==='star'){
+    preset.starred=!preset.starred;
+    renderPracticeLibrary();
+    $('quiz-presets').querySelector(`[data-preset-index="${index}"][data-preset-action="star"]`).focus();
+   }else{
+    S.practice.presets.splice(index,1);
+    renderPracticeLibrary();
+   }
+   save();
+  });
+  for(const [id,mode] of [['interval-history','passive'],['quiz-history','quiz']])on(id,'click',event=>{
+   const button=event.target.closest('[data-history-index]');
+   if(button)loadPractice(mode,S.practice.history[mode][Number(button.dataset.historyIndex)]);
+  });
   $('quiz-choices').addEventListener('click',safe(async e=>{const b=e.target.closest('[data-choice]');if(b)await answer(Number(b.dataset.step),b.dataset.choice);}));
-  on('reset-score','click',()=>{stop();S.session=new T.QuizSession();S.question=null;S.current={notes:[],steps:[]};$('quiz-choices').innerHTML='';$('feedback').hidden=true;$('new-question').textContent='▶ Start ear quiz';$('replay').disabled=true;$('harmonic').disabled=true;$('quiz-title').textContent='A fresh pair of ears.';$('question-label').textContent='YOUR NEXT SMALL BREAKTHROUGH';$('quiz-instruction').textContent='Listen to the notes, then name the distance between them.';drawInstruments([],[]);refreshControls();renderStats();save();toast('Scores reset. Your practice settings are saved.');});
+  on('reset-score','click',()=>{
+   stop();S.session=new T.QuizSession();resetQuizQuestion();refreshControls();renderStats();save();toast('Quiz score reset.');
+  });
   on('help-button','click',()=>$('help').showModal());on('close-help','click',()=>$('help').close());on('help-done','click',()=>$('help').close());
   document.addEventListener('keydown',safe(async e=>{
    if(e.key==='Escape'){stop();return;}if(e.repeat||e.ctrlKey||e.metaKey||e.altKey||$('help').open||e.target.matches('input,select,textarea,[contenteditable="true"]'))return;
@@ -523,6 +790,7 @@
   }));
   window.addEventListener('pagehide',()=>{if(!S.background)stop();save();});
   if(!('speechSynthesis'in window)){$('speech').value='off';$('speech').disabled=true;$('speech-hint').textContent='Voice announcements are unavailable in this browser.';}
+  if(!('speechSynthesis'in window)||!('SpeechSynthesisUtterance'in window))$('quiz-announce-hint').textContent='This browser shows answers as text. The quiz advances automatically.';
  }
  initialize();
 })();

@@ -13,6 +13,10 @@ A complete browser-local interval ear training studio. Open **[index.html](index
 
 Use **Space** to prepare, play or pause the main passive loop. In the quiz, **R / Space** replays, **1–9** answers the first unfinished step, and **Enter** starts the next question. **Escape** stops playback. Shortcuts leave focused form controls alone.
 
+Turn on **Announce answers** in Quiz Rules and set **Plays before answer** for hands-free practice. The quiz repeats each question, reveals and speaks the answer, then starts the next question. Only submitted answers count toward the score. Use **Reset quiz score** to clear scores and streaks.
+
+Use **Quiz presets and history** to save, star, and load quiz setups on this device. The studio keeps the five most recent distinct configurations for each practice mode. When the page opens, Passive Listening restores the settings of the last loop you played.
+
 For **iPhone lock-screen / background listening**, set the sound, volume and drill, then tap **Prepare infinite loop → Play infinite loop** in the main transport. Wait for preparation to finish and tap Play before locking the screen or switching apps. The lock-screen card also offers the same track and native media controls. The real audio element repeats the rendered music independently of page animation callbacks; supported Media Session controls provide play/pause/stop/seek from system media controls. A fixed drill repeats one complete group. Random, rotating and transposing drills prepare about one minute of complete groups (up to 96), then repeat that playlist; prepare again for fresh random choices. The cycle readout shows position within the prepared playlist. Musical or volume edits clear the track, while instrument-layout changes preserve it. **Start live loop** remains available for fresh random choices every cycle and spoken announcements while the page stays open.
 
 On iPhone/Safari, tap **Enable sound**, then use a play control. The sound test plays A4 (440 Hz). Supported browsers use the playback audio-session type so the iPhone Silent switch does not mute the music. Suspended/interrupted contexts can resume on a fresh tap, and a failed unlock offers a retry instead of hanging. On older iOS versions without AudioSession support, turn off Silent mode if needed and check media volume/Bluetooth output. Settings and scores are saved locally when storage is available. Blocked storage, including opaque-origin `sandbox="allow-scripts"` frames, does not prevent operation. The application makes no network requests for assets, scripts or audio.
@@ -64,6 +68,7 @@ npm run test:audio
 npm run test:browser
 npm run test:mobile
 npm run test:connections
+npm run test:practice-library
 npm run test:background
 ```
 
