@@ -26,6 +26,25 @@
  const info=s=>intervals.find(i=>i.st===Math.abs(s)) || {st:Math.abs(s),short:s===0?'P1':Math.abs(s)+' st',name:s===0?'Unison':Math.abs(s)+' semitones',ratio:s===0?'1:1':'—',up:'Listen for the distance between the notes.',down:'Listen for the distance between the notes.'};
  const pick=(a,rng=Math.random)=>a[Math.min(a.length-1,Math.floor(rng()*a.length))];
  function shuffle(a,rng=Math.random){a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+ // Every round visits the whole pool in a fresh random order.
+ class ShuffleBag {
+  constructor(rng=Math.random){this.rng=rng;this.pool=[];this.remaining=[];this.previous=undefined;}
+  next(values){
+   const pool=[...new Set(values)];
+   if(pool.length!==this.pool.length||pool.some(value=>!this.pool.includes(value))){
+    this.pool=pool;this.remaining=[];
+   }
+   if(!this.remaining.length){
+    this.remaining=shuffle(this.pool,this.rng);
+    if(this.remaining.length>1&&this.remaining[0]===this.previous){
+     const index=1+Math.floor(this.rng()*(this.remaining.length-1));
+     [this.remaining[0],this.remaining[index]]=[this.remaining[index],this.remaining[0]];
+    }
+   }
+   this.previous=this.remaining.shift();
+   return this.previous;
+  }
+ }
  function sign(direction,iteration){return direction==='down'||direction==='alternate'&&iteration%2===1?-1:1;}
  function cellOffsets(c,iteration=0,rng=Math.random){
   const first=Number(c.interval)*sign(c.direction,iteration);const out=[0,first];
@@ -54,9 +73,10 @@
  }
  function nextRoot(c,iteration,previous=60,rng=Math.random){
   if(c.mode==='fixed')return Number(c.fixed);
-  if(iteration===0)return c.mode==='random'?pick([50,52,53,55,57,59,60,62,64],rng):Number(c.fixed);
+  const roots=[50,52,53,55,57,59,60,62,64];
+  if(iteration===0)return c.mode==='random'?pick(roots,rng):Number(c.fixed);
   if(iteration%Number(c.repeats||1)!==0)return previous;
-  if(c.mode==='random'){let r=pick([50,52,53,55,57,59,60,62,64],rng);if(r===previous)r=r===64?50:r+1;return r;}
+  if(c.mode==='random')return pick(roots.filter(root=>root!==previous),rng);
   let r=previous+(c.mode==='fourths'?5:c.mode==='down'?-1:1);
   if(r>67)r-=12;if(r<48)r+=12;return r;
  }
@@ -97,9 +117,9 @@
   }
   return {events,rests,segments,duration:time};
  }
- function choices(pool,target,count=0,rng=Math.random){
+ function choices(pool,target,count=0){
   const others=[...new Set(pool)].filter(x=>x!==target).sort((a,b)=>Math.abs(a-target)-Math.abs(b-target)||a-b);
-  return shuffle([target,...others.slice(0,count?Math.max(0,count-1):others.length)],rng);
+  return [target,...others.slice(0,count?Math.max(0,count-1):others.length)].sort((a,b)=>a-b);
  }
  class QuizSession {
   constructor(){this.total=0;this.correct=0;this.streak=0;this.best=0;this.byInterval={};this.targets=[];this.answers=[];this.done=false;}
@@ -111,5 +131,5 @@
   }
   get accuracy(){return this.total?Math.round(this.correct/this.total*100):0;}
  }
- global.IntervalCore={intervals,tuning,frequency,noteName,info,pick,shuffle,cellOffsets,normalizeSequence,sequenceOffsets,sequencePosition,fitRoot,placeRoot,nextRoot,positions,solveFingering,phrase,disjointPhrase,choices,QuizSession};
+ global.IntervalCore={intervals,tuning,frequency,noteName,info,pick,shuffle,ShuffleBag,cellOffsets,normalizeSequence,sequenceOffsets,sequencePosition,fitRoot,placeRoot,nextRoot,positions,solveFingering,phrase,disjointPhrase,choices,QuizSession};
 })(globalThis);

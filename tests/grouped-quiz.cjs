@@ -5,6 +5,17 @@ const { chromium, webkit, devices } = require(process.env.PLAYWRIGHT_PATH || 'pl
 const url = process.env.TEST_URL || 'file://' + path.resolve('index.html');
 const engines = process.env.QA_ENGINE ? [process.env.QA_ENGINE] : ['chromium', 'webkit'];
 
+async function questionWithStep(page, step) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    await page.evaluate(() => { quizNotes = []; });
+    await page.locator('#new-question').tap();
+    await page.waitForFunction(() => quizNotes.length === 2);
+    const notes = await page.evaluate(() => quizNotes);
+    if (notes[1] - notes[0] === step) return notes;
+  }
+  assert.fail('The shuffled category round did not include the requested sound');
+}
+
 async function verify(engine) {
   const browser = engine === 'webkit'
     ? await webkit.launch()
@@ -35,12 +46,11 @@ async function verify(engine) {
         return play.apply(this, arguments);
       };
     });
-    await page.locator('#new-question').tap();
+    const first = await questionWithStep(page, -4);
     const choices = page.locator('#quiz-choices .choice');
     const keys = await choices.evaluateAll(buttons => buttons.map(button => button.dataset.choice));
     assert.deepEqual(keys.sort(), ['1:up', '2:up', 'others']);
     await page.waitForFunction(() => quizNotes.length === 2);
-    const first = await page.evaluate(() => quizNotes);
     assert.equal(first[1] - first[0], -4);
     assert.equal(await page.locator('.piano-key.context').count(), 1);
     await page.locator('.choice[data-choice="others"]').tap();
@@ -60,19 +70,14 @@ async function verify(engine) {
     await page.locator('#new-question').tap();
     assert.match(await page.locator('#toast').textContent(), /no sounds.*Others/i);
     await page.locator('#quiz-down').check();
-    await page.evaluate(() => { quizNotes = []; });
-    await page.locator('#new-question').tap();
-    await page.waitForFunction(() => quizNotes.length === 2);
-    const second = await page.evaluate(() => quizNotes);
+    const second = await questionWithStep(page, -2);
     assert.equal(second[1] - second[0], -2, 'Random excludes the named ascending sound, not the whole interval');
     await page.locator('.choice[data-choice="1:up"]').tap();
     assert.equal(await page.locator('#score').textContent(), '1 / 2');
     assert.match(await page.locator('#feedback').textContent(), /Major second descending \(Others\)/);
 
     await page.evaluate(() => { Math.random = () => 0; quizNotes = []; });
-    await page.locator('#new-question').tap();
-    await page.waitForFunction(() => quizNotes.length === 2);
-    const third = await page.evaluate(() => quizNotes);
+    const third = await questionWithStep(page, 2);
     assert.equal(third[1] - third[0], 2);
     const namedIndex = await choices.evaluateAll(buttons => buttons.findIndex(button => button.dataset.choice === '2:up'));
     await page.keyboard.press(String(namedIndex + 1));

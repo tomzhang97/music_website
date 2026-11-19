@@ -13,6 +13,7 @@ const url = process.env.TEST_URL || 'file://' + path.resolve('index.html');
     await page.getByLabel('Speed', { exact: true }).fill('200');
     await page.getByLabel('Breath between cycles').fill('0.3');
     await page.getByLabel('SOUND ENGINE', { exact: true }).selectOption('sine');
+    await page.getByLabel('Keep playing in background').check();
 
     await page.locator('#loop').click();
     await page.waitForFunction(() => document.querySelector('#background-audio').src.startsWith('blob:'), null, { timeout: 10000 });

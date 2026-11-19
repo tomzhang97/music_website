@@ -4,6 +4,8 @@
  const badges=['①','②','③','④','⑤'];
  const quizDirections={up:'ascending',down:'descending',harmonic:'harmonic'};
  const quizSounds=new Map();
+ const quizDraws={interval:new T.ShuffleBag(),secondInterval:new T.ShuffleBag(),directions:new Map(),secondDirections:new Map(),category:new T.ShuffleBag(),others:new T.ShuffleBag(),root:new T.ShuffleBag()};
+ let passiveStepDraws=new T.ShuffleBag();
  for(const interval of T.intervals){
   for(const direction of Object.keys(quizDirections)){
    quizSounds.set(`${interval.st}:${direction}`,{interval,direction});
@@ -15,8 +17,8 @@
  S.quizListening=false;
  S.quizSpeechPrimed=false;
  const audioSettings=['voice','volume','bpm','gap'];
- const passiveSettings=[...audioSettings,'interval','selection-mode','direction','step2rule','step2interval','step2direction','reference','root-mode','root-note','repetitions','phrasing','speech','sequence-style','cell-connection','interval-pause'];
- const quizSettings=[...audioSettings,'blind','choice-count','auto-advance','quiz-up','quiz-down','quiz-harmonic','quiz-others-source','quiz-announce','quiz-repeats'];
+ const passiveSettings=[...audioSettings,'background-mode','interval','selection-mode','direction','step2rule','step2interval','step2direction','reference','root-mode','root-note','repetitions','phrasing','speech','sequence-style','cell-connection','interval-pause'];
+ const quizSettings=[...audioSettings,'blind','choice-count','auto-advance','quiz-up','quiz-down','quiz-harmonic','quiz-others-source','quiz-announce','quiz-repeats','quiz-speech-balance'];
  const settingIds=[...new Set([...passiveSettings,...quizSettings,'view','ghosts'])];
  let toastTimer=0,lastCenter='',dragStart=null,dragMoved=false;
  function toast(message,error=false){clearTimeout(toastTimer);$('toast').textContent=message;$('toast').classList.toggle('error',error);$('toast').hidden=false;toastTimer=setTimeout(()=>$('toast').hidden=true,4200);}
@@ -228,7 +230,7 @@
   const preparing=!!S.background?.preparing,native=!!S.background?.url,live=S.looping&&!native;
   $('loop').classList.toggle('running',S.looping);
   $('loop').disabled=preparing;
-  $('loop-label').textContent=live?'Stop interactive playback':S.looping?'Pause infinite loop':preparing?'Preparing loop…':native?'Play infinite loop':'Prepare infinite loop';
+  $('loop-label').textContent=live?'Stop infinite loop':S.looping?'Pause infinite loop':preparing?'Preparing loop…':native?'Play infinite loop':$('background-mode').checked?'Prepare infinite loop':'Start infinite loop';
   $('loop').querySelector('.play-icon').textContent=S.looping?'■':'▶';
   $('live-loop').textContent=live?'Stop live loop':'Start live loop';
   $('transport-led').classList.toggle('on',S.looping);
@@ -277,13 +279,16 @@
  function animateBackground(){cancelAnimationFrame(S.raf);const tick=()=>{if(!S.background?.url||$('background-audio').paused)return;syncBackground();S.raf=requestAnimationFrame(tick);};tick();}
  async function prepareBackground(){
   if(S.background?.preparing){stop();return;}
+  $('background-mode').checked=true;save();
   stop();const token=S.generation,bg={preparing:true,started:false,config:practiceConfig('passive')};S.background=bg;
   $('prepare-background').textContent='Cancel preparation';$('background-card').setAttribute('aria-busy','true');$('background-status').textContent='Preparing your drill… keep Safari open until the Play button appears.';
   loopButton();
   try{
    const rawRoot=S.rawRoot;S.rawRoot=Number($('root-note').value);
+   passiveStepDraws=new T.ShuffleBag();
    const deterministic=$('root-mode').value==='fixed'&&(S.sequenceEnabled||$('selection-mode').value==='lock'&&$('direction').value!=='alternate'&&(S.size===2||$('step2rule').value!=='random'));
-   let track;try{track=StudioTrack.plan(i=>{const cycle=makePassive(i);return {...cycle,disjoint:isDisjoint(cycle)};},{...passiveTiming(),targetSeconds:deterministic?0:60});}finally{S.rawRoot=rawRoot;}
+   const pooled=!S.sequenceEnabled&&($('selection-mode').value==='rotate'||S.size===3&&$('step2rule').value==='random');
+   let track;try{track=StudioTrack.plan(i=>{const cycle=makePassive(i);return {...cycle,disjoint:isDisjoint(cycle)};},{...passiveTiming(),targetSeconds:deterministic?0:60,groupMultiple:pooled?S.pool.size:1});}finally{S.rawRoot=rawRoot;}
    const blob=await StudioTrack.render(track,{voice:$('voice').value,volume:Number($('volume').value)/100});
    if(token!==S.generation||S.background!==bg)return;
    bg.preparing=false;bg.track=track;bg.url=URL.createObjectURL(blob);const media=$('background-audio');media.src=bg.url;media.loop=true;media.load();
@@ -294,7 +299,7 @@
  }
  function getConfig(){return {size:S.size,interval:Number($('interval').value),direction:$('direction').value,step2rule:$('step2rule').value,step2interval:Number($('step2interval').value),step2direction:$('step2direction').value,reference:$('reference').value,pool:[...S.pool]};}
  function fitVisible(root,offsets){return T.placeRoot(root,offsets);}
- function makePassive(iteration=0){
+ function makePassive(iteration=0,consumeRandom=true){
   const rootConfig={mode:$('root-mode').value,fixed:Number($('root-note').value),repeats:Number($('repetitions').value)};
   if(S.sequenceEnabled){
    const rows=T.normalizeSequence(S.sequence),position=T.sequencePosition(rows,iteration),pairs=$('sequence-style').value==='pairs';
@@ -306,7 +311,11 @@
    return {notes:offsets.map(o=>root+o),steps:offsets.slice(1).map((o,i)=>o-offsets[i]),harmonic:false,config:{reference:'chain'},sequence:{...position,style:pairs?'pairs':$('sequence-style').value==='disjoint'?'disjoint':'phrase',count:rows.length}};
   }
   const config=getConfig();if($('selection-mode').value==='rotate')config.interval=[...S.pool].sort((a,b)=>a-b)[iteration%S.pool.size];
-  const offsets=T.cellOffsets(config,iteration);S.rawRoot=T.nextRoot(rootConfig,iteration,S.rawRoot);
+  const resolved={...config};
+  if(config.size===3&&config.step2rule==='random'&&consumeRandom){
+   resolved.step2rule='fixed';resolved.step2interval=passiveStepDraws.next(config.pool);
+  }
+  const offsets=T.cellOffsets(resolved,iteration);S.rawRoot=T.nextRoot(rootConfig,iteration,S.rawRoot);
   const root=rootConfig.mode==='fixed'?S.rawRoot:fitVisible(S.rawRoot,offsets);
   return {notes:offsets.map(o=>root+o),steps:offsets.slice(1).map((o,i)=>o-offsets[i]),harmonic:config.direction==='harmonic',config};
  }
@@ -405,7 +414,11 @@
   }tick();
  }
  function speak(text,token){return new Promise(resolve=>{if(!('speechSynthesis'in window)||!('SpeechSynthesisUtterance'in window)){resolve();return;}
-  const utterance=new SpeechSynthesisUtterance(text);utterance.rate=0.88;let finished=false;const done=()=>{if(finished)return;finished=true;clearTimeout(timer);resolve();};const timer=setTimeout(()=>{if(token===S.generation)window.speechSynthesis.cancel();done();},6500);utterance.onend=done;utterance.onerror=done;window.speechSynthesis.speak(utterance);
+  const utterance=new SpeechSynthesisUtterance(text);utterance.rate=0.88;
+  // Speech has a separate output path, so apply the same master level explicitly.
+  const balance=S.mode==='quiz'?Number($('quiz-speech-balance').value)/100:0.35;
+  utterance.volume=Number($('volume').value)/100*balance;
+  let finished=false;const done=()=>{if(finished)return;finished=true;clearTimeout(timer);resolve();};const timer=setTimeout(()=>{if(token===S.generation)window.speechSynthesis.cancel();done();},6500);utterance.onend=done;utterance.onerror=done;window.speechSynthesis.speak(utterance);
  });}
  function primeQuizSpeech(){
   if(S.quizSpeechPrimed||!window.speechSynthesis||!window.SpeechSynthesisUtterance||navigator.userActivation?.isActive===false)return;
@@ -430,14 +443,16 @@
   });
   playScheduled(cycle.notes,plan,token,betweenPairs?Number($('interval-pause').value):once?0:Number($('gap').value),finish);
  }
- async function startLoop(){stop();S.looping=true;S.iteration=0;S.rawRoot=Number($('root-note').value);loopButton();await runCycle();}
+ async function startLoop(){stop();$('background-mode').checked=false;S.looping=true;S.iteration=0;S.rawRoot=Number($('root-note').value);loopButton();await runCycle();}
  async function toggleMainLoop(){
   if(S.background?.preparing)return;
   if(S.background?.url){const media=$('background-audio');if(media.paused)await playBackground();else media.pause();return;}
   if(S.looping){stop();return;}
-  await prepareBackground();
+  if($('background-mode').checked)await prepareBackground();
+  else await startLoop();
  }
  function refreshControls(){
+  loopButton();
   $('classic-settings').hidden=S.sequenceEnabled;$('sequence-settings').hidden=!S.sequenceEnabled;
   const showPause=S.sequenceEnabled?S.sequence.length>1&&['disjoint','pairs'].includes($('sequence-style').value):S.size===3&&$('cell-connection').value==='disjoint';$('interval-pause-field').hidden=!showPause;$('interval-pause-value').textContent=Number($('interval-pause').value).toFixed(1)+' s';
   $('cell-settings').hidden=S.size!==3;$('rotation-help').hidden=$('selection-mode').value!=='rotate';$('interval').disabled=$('selection-mode').value==='rotate';$('custom-step2').hidden=['repeat','mirror'].includes($('step2rule').value);$('step2interval').disabled=$('step2rule').value==='random';
@@ -454,12 +469,13 @@
   $('quiz-choice-count').hidden=grouped;
   $('harmonic').hidden=S.question?Boolean(S.question.group):grouped;
   $('quiz-repeat-field').hidden=!$('quiz-announce').checked;
+  $('quiz-speech-balance-value').textContent=$('quiz-speech-balance').value+'%';
   if(!S.question)$('new-question').textContent=$('quiz-announce').checked?'▶ Start hands-free quiz':'▶ Start ear quiz';
   $('instruments').className='instruments '+($('view').value==='piano'?'piano-only':$('view').value==='guitar'?'guitar-only':'');
   $('bpm-value').textContent=$('bpm').value;$('beat-ms').textContent=Math.round(60000/Number($('bpm').value))+' ms / beat';$('gap-value').textContent=Number($('gap').value).toFixed(1)+' s';$('volume-value').textContent=$('volume').value+'%';
   $$('[data-bpm]').forEach(b=>b.classList.toggle('selected',b.dataset.bpm===$('bpm').value));
  }
- function preview(){if(S.looping)return;S.rawRoot=Number($('root-note').value);S.current=makePassive(0);renderLCD(S.current);drawInstruments(S.current.notes,[]);}
+ function preview(){if(S.looping)return;S.rawRoot=Number($('root-note').value);S.current=makePassive(0,false);renderLCD(S.current);drawInstruments(S.current.notes,[]);}
  function setMode(mode){stop();S.mode=mode;const quiz=mode==='quiz';$('passive-panel').hidden=quiz;$('quiz-panel').hidden=!quiz;for(const name of ['passive','quiz']){const active=name===mode;$(name+'-tab').classList.toggle('active',active);$(name+'-tab').setAttribute('aria-selected',String(active));$(name+'-tab').tabIndex=active?0:-1;}
   $('mode-hint').textContent=quiz?'Listen first. Trust the distance.':'A small daily ritual. A sharper musical ear.';
   if(quiz&&S.question){S.current=S.question;drawInstruments(S.question.notes,[]);}else if(!quiz)preview();else{S.current={notes:[],steps:[]};drawInstruments([],[]);$('fingering-path').textContent='ANSWER NOTES STAY HIDDEN UNTIL YOU ANSWER.';}
@@ -507,6 +523,10 @@
   $('quiz-instruction').textContent='Listen to the notes, then name the distance between them.';
   drawInstruments([],[]);
  }
+ function quizDirection(interval,directions,bags){
+  if(!bags.has(interval))bags.set(interval,new T.ShuffleBag());
+  return bags.get(interval).next(directions);
+ }
  async function newQuestion(){
   stop();
   const token=S.generation;
@@ -523,23 +543,31 @@
     toast(random?'No sounds are available for Others. Enable more intervals or directions.':'Add at least one sound to Others.',true);
     return;
    }
-   const choices=[...named,'others'];
-   const target=T.pick(choices);
-   const key=target==='others'?T.pick(others):target;
+   const ordered=[...named].sort((a,b)=>{
+    const first=quizSounds.get(a),second=quizSounds.get(b);
+    return first.interval.st-second.interval.st||Object.keys(quizDirections).indexOf(first.direction)-Object.keys(quizDirections).indexOf(second.direction);
+   });
+   const choices=[...ordered,'others'];
+   const target=quizDraws.category.next(choices);
+   const key=target==='others'?quizDraws.others.next(others):target;
    const {interval,direction}=quizSounds.get(key);
    c={size:2,interval:interval.st,direction};
-   group={choices:T.shuffle(choices),target,key,others};
+   group={choices,target,key,others};
   }else{
    if(!directions.length){toast('Enable at least one quiz direction.',true);return;}
-   const direction=T.pick(directions);
+   const interval=quizDraws.interval.next(pool);
+   const direction=quizDirection(interval,directions,quizDraws.directions);
    const melodic=directions.filter(value=>value!=='harmonic');
-   c={size:S.quizSize,interval:T.pick(pool),direction,step2rule:'fixed',step2interval:T.pick(pool),
-    step2direction:direction==='harmonic'?'up':T.pick(melodic),reference:'chain'};
+   c={size:S.quizSize,interval,direction,step2rule:'fixed',reference:'chain'};
+   if(S.quizSize===3){
+    c.step2interval=quizDraws.secondInterval.next(pool);
+    c.step2direction=direction==='harmonic'?'up':quizDirection(c.step2interval,melodic,quizDraws.secondDirections);
+   }
   }
   if($('quiz-announce').checked)primeQuizSpeech();
   await audio();
   if(token!==S.generation)return;
-  const offsets=T.cellOffsets(c),root=fitVisible(T.pick([50,52,53,55,57,59,60,62,64]),offsets);
+  const offsets=T.cellOffsets(c),root=fitVisible(quizDraws.root.next([50,52,53,55,57,59,60,62,64]),offsets);
   S.question={notes:offsets.map(o=>root+o),steps:offsets.slice(1).map((o,i)=>o-offsets[i]),harmonic:c.direction==='harmonic',config:c,group};
   S.current=S.question;
   const intervals=S.question.steps.map(Math.abs);
@@ -671,9 +699,9 @@
   }else if(!correct){
    explanation=`Your answer was ${S.session.answers.map(a=>T.info(a).name).join(' + ')}. The interval was ${q.steps.map(s=>T.info(s).name).join(' + ')}.`;
   }
-  $('feedback').innerHTML=`<h3>${heading}</h3><p>${explanation}</p><div class="feedback-notes">${q.notes.map(T.noteName).join(' → ')}</div><p>${q.steps.map(s=>`${s>0?'+':''}${s} semitones · ${Math.pow(2,Math.abs(s)/12).toFixed(4)}× in 12-TET · ${T.info(s).ratio} reference ratio<br>Song cue: ${s<0?T.info(s).down:T.info(s).up}`).join('<br>')}</p><p>Tap any answer to compare it from the same starting note.</p><button id="handoff">∞ Loop this ${q.steps.length===2?'cell':'interval'} in Passive Listening ↗</button>`;
+  $('feedback').innerHTML=`<h3>${heading}</h3><p class="feedback-answer" id="quiz-answer-name">${quizAnswerName(q)}</p><p>${explanation}</p><div class="feedback-notes">${q.notes.map(T.noteName).join(' → ')}</div><p>${q.steps.map(s=>`${s>0?'+':''}${s} semitones · ${Math.pow(2,Math.abs(s)/12).toFixed(4)}× in 12-TET · ${T.info(s).ratio} reference ratio<br>Song cue: ${s<0?T.info(s).down:T.info(s).up}`).join('<br>')}</p><p>Tap any answer to compare it from the same starting note.</p><button id="handoff">∞ Loop this ${q.steps.length===2?'cell':'interval'} in Passive Listening ↗</button>`;
   $('handoff').addEventListener('click',safe(handoff));
-  $('quiz-title').textContent=correct===null?quizAnswerName(q):correct?'That’s the connection.':'One step closer.';
+  $('quiz-title').textContent=quizAnswerName(q);
   $('quiz-instruction').textContent='The notes are revealed. Compare the sounds, or try the next question.';
  }
  async function handoff(){
@@ -715,6 +743,7 @@
   on('passive-tab','click',()=>setMode('passive'));on('quiz-tab','click',()=>setMode('quiz'));
   for(const id of ['passive-tab','quiz-tab'])on(id,'keydown',e=>{if(['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();const mode=S.mode==='quiz'?'passive':'quiz';setMode(mode);$(mode+'-tab').focus();}});
   settingIds.forEach(id=>on(id,$(id).type==='range'?'input':'change',async()=>{
+   if(id==='background-mode'){stop();refreshControls();save();return;}
    refreshControls();
    if(!['view','ghosts','blind','auto-advance','choice-count'].includes(id)&&!id.startsWith('quiz-'))invalidateBackground();
    if(id==='voice'){const token=S.generation,voice=$('voice').value;const synth=await audio();if(token!==S.generation||$('voice').value!==voice)return;synth.instrument=voice;synth.play(S.current?.notes[0]||60,undefined,0.65,0.7,voice);}

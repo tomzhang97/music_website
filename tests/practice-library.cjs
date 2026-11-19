@@ -38,6 +38,7 @@ async function verify(engine) {
     await page.getByLabel('Breath between cycles').fill('0.3');
     await page.getByLabel('SOUND ENGINE', { exact: true }).selectOption('sine');
     await page.locator('#interval').selectOption('2');
+    await page.getByLabel('Keep playing in background').check();
     await page.getByRole('button', { name: /Prepare infinite loop/ }).click();
     await page.getByRole('button', { name: /Play infinite loop/ }).waitFor();
     assert.equal((await readPractice(page)).lastLoop, null, 'Preparation must not become the last played loop');
@@ -85,8 +86,12 @@ async function verify(engine) {
     await page.waitForFunction(() => spokenAnswers.length === 1);
     assert.equal(await page.evaluate(() => speechPrimed), true);
     const announced = await page.evaluate(() => spokenAnswers[0]);
-    assert.deepEqual(announced, { text: 'The answer is Major third ascending (Others).', noteCount: 6 });
-    assert.match(await page.locator('#feedback').textContent(), /Major third ascending \(Others\)/);
+    const played = await page.evaluate(() => quizNotes);
+    const interval = played[1] - played[0];
+    const names = { 1: 'Minor second', 2: 'Major second', 4: 'Major third', 6: 'Tritone' };
+    const answer = names[interval] + ' ascending' + ([4, 6].includes(interval) ? ' (Others)' : '');
+    assert.deepEqual(announced, { text: 'The answer is ' + answer + '.', noteCount: 6 });
+    assert.equal(await page.locator('#quiz-answer-name').textContent(), answer);
     assert.equal(await page.locator('#score').textContent(), '0 / 0');
     await page.evaluate(() => finishSpeech());
     await page.waitForFunction(() => quizNotes.length === 8);
@@ -109,8 +114,8 @@ async function verify(engine) {
     assert.equal(quizHistory[0].settings['choice-count'], '6');
     assert.equal(quizHistory.at(-1).settings['choice-count'], '6');
     assert.equal(quizHistory.at(-1).settings.blind, true);
-    const interval = await page.evaluate(() => Math.abs(quizNotes[1] - quizNotes[0]));
-    await page.locator(`.choice[data-choice="${interval}"]`).click();
+    const scoredInterval = await page.evaluate(() => Math.abs(quizNotes[1] - quizNotes[0]));
+    await page.locator(`.choice[data-choice="${scoredInterval}"]`).click();
     assert.equal(await page.locator('#score').textContent(), '1 / 1');
     await page.getByRole('button', { name: 'Reset quiz score' }).click();
     assert.equal(await page.locator('#score').textContent(), '0 / 0');

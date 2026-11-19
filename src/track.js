@@ -3,7 +3,7 @@
  'use strict';
  const T=global.IntervalCore;
  function phrase(cycle,{bpm=100,style='pure',pause=0.7}={}){return cycle.disjoint?T.disjointPhrase(cycle.notes,bpm,style,pause,cycle.harmonic):T.phrase(cycle.notes,bpm,style,cycle.harmonic);}
- function plan(makeCycle,{bpm=100,style='pure',pause=0.7,gap=2,targetSeconds=60,maxGroups=96}={}){
+ function plan(makeCycle,{bpm=100,style='pure',pause=0.7,gap=2,targetSeconds=60,maxGroups=96,groupMultiple=1}={}){
   const segments=[],events=[];let duration=0,groups=0,iteration=0,last=true;
   do{
    const cycle=makeCycle(iteration++),pairs=cycle.sequence?.style==='pairs';
@@ -13,7 +13,7 @@
    const breath=last?gap:pause,start=duration;duration+=schedule.duration+breath;
    segments.push({cycle,plan:schedule,start,end:duration,gap:breath,group:groups});
    for(const event of schedule.events)for(const index of event.indices)events.push({midi:cycle.notes[index],at:start+event.at,length:event.length,velocity:event.velocity});
-  }while(!last||duration<targetSeconds&&groups<maxGroups);
+  }while(!last||(duration<targetSeconds||groups%groupMultiple!==0)&&groups<maxGroups);
   return {segments,events,duration,groups};
  }
  function wav(buffer){

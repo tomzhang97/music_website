@@ -11,7 +11,7 @@ const screenshots=path.resolve(process.env.QA_DIR||'test-results');fs.mkdirSync(
   const requests=[];p.on('request',r=>requests.push(r.url()));await p.goto(base);assert.equal(await p.locator('[data-midi].piano-key').count(),37);assert.equal(await p.locator('.fret').count(),96);
   await p.getByLabel('Root transposition').selectOption('fixed');await p.getByLabel('Root / starting note').selectOption('60');await p.getByLabel('Speed',{exact:true}).fill('200');await p.getByLabel('Breath between cycles').fill('0.3');
   await p.getByRole('button',{name:/Start live loop/}).click();await p.waitForFunction(()=>Number(document.getElementById('cycle-count').textContent)>=2,{},{timeout:6000});
-  await p.keyboard.press('Escape');assert.match(await p.locator('#loop-label').textContent(),/Prepare/);assert.equal(await p.locator('.piano-key.sounding').count(),0);
+  await p.keyboard.press('Escape');assert.match(await p.locator('#loop-label').textContent(),/Start infinite loop/);assert.equal(await p.locator('.piano-key.sounding').count(),0);
   await p.getByRole('button',{name:/Play cycle once/}).click();await p.waitForFunction(()=>document.querySelector('.piano-key.sounding'));await p.waitForFunction(()=>document.getElementById('transport-status').textContent==='STANDBY');
   await p.getByRole('button',{name:/Open help/}).click();assert.equal(await p.locator('dialog').isVisible(),true);await p.getByRole('button',{name:'Let’s listen'}).click();
   assert.ok(requests.every(u=>u.startsWith(base)||u.startsWith('data:')),'External runtime request');await p.screenshot({path:path.join(screenshots,'desktop.png'),fullPage:true});
@@ -24,11 +24,16 @@ const screenshots=path.resolve(process.env.QA_DIR||'test-results');fs.mkdirSync(
  });
  await scenario('quiz blind state, wrong answer, one-time score, same-root comparisons and handoff',async p=>{
   await p.addInitScript(()=>{Math.random=()=>0.25;});await p.goto(base);await p.getByRole('button',{name:'Core pillars',exact:true}).click();for(const st of [4,5,12])await p.locator(`[data-pool-note="${st}"]`).click();await p.locator('[data-pool-note="2"]').click();
-  await p.getByRole('tab',{name:/Ear Quiz/}).click();await p.getByRole('button',{name:/Start ear quiz/}).click();
-  assert.equal(await p.locator('.piano-key.context').count(),1);assert.match(await p.locator('#fingering-path').textContent(),/Answer notes hidden/);await p.getByRole('button',{name:/M2Major second/}).click();
+  await p.getByRole('tab',{name:/Ear Quiz/}).click();
+  await p.evaluate(()=>{window.questionPlayed=[];const play=StudioSynth.prototype.play;StudioSynth.prototype.play=function(midi){questionPlayed.push(midi);return play.apply(this,arguments);};});
+  await p.getByRole('button',{name:/Start ear quiz/}).click();
+  const questionStep=await p.evaluate(()=>questionPlayed[1]-questionPlayed[0]);
+  const target=Math.abs(questionStep);
+  const wrong=[2,7].find(value=>value!==target);
+  assert.equal(await p.locator('.piano-key.context').count(),1);assert.match(await p.locator('#fingering-path').textContent(),/Answer notes hidden/);await p.locator(`.choice[data-choice="${wrong}"]`).click();
   assert.equal(await p.locator('#score').textContent(),'0 / 1');assert.equal(await p.locator('#feedback').isVisible(),true);assert.equal(await p.locator('.piano-key.context').count(),2);
   await p.evaluate(()=>{globalThis.played=[];const original=StudioSynth.prototype.play;StudioSynth.prototype.play=function(...a){played.push(a[0]);return original.apply(this,a);};});
-  const rootName=(await p.locator('.feedback-notes').textContent()).split(' → ')[0];await p.locator('.choice[data-choice="7"]').click();const notes=await p.evaluate(()=>played);assert.equal(notes[1]-notes[0],7);assert.equal(await p.evaluate(m=>IntervalCore.noteName(m),notes[0]),rootName);assert.equal(await p.locator('#score').textContent(),'0 / 1');
+  const rootName=(await p.locator('.feedback-notes').textContent()).split(' → ')[0];await p.locator('.choice[data-choice="7"]').click();const notes=await p.evaluate(()=>played);assert.equal(notes[1]-notes[0],Math.sign(questionStep)*7);assert.equal(await p.evaluate(m=>IntervalCore.noteName(m),notes[0]),rootName);assert.equal(await p.locator('#score').textContent(),'0 / 1');
   await p.locator('#handoff').click();assert.equal(await p.getByRole('tab',{name:/Passive Listening/}).getAttribute('aria-selected'),'true');assert.match(await p.locator('#loop-label').textContent(),/Stop/);assert.equal(await p.getByLabel('Root transposition').inputValue(),'fixed');assert.equal(await p.getByLabel('Root / starting note').inputValue(),String(notes[0]));await p.keyboard.press('Escape');
  });
  await scenario('3-note quiz keyboard answers, replay and statistics persistence',async p=>{
@@ -39,7 +44,7 @@ const screenshots=path.resolve(process.env.QA_DIR||'test-results');fs.mkdirSync(
  await scenario('360px layout, high-note auto-centering, gestures and focused controls',async p=>{
   await p.goto(base);assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=360));await p.getByLabel('Root transposition').selectOption('fixed');await p.getByLabel('Root / starting note').selectOption('72');await p.getByLabel('Speed',{exact:true}).fill('200');await p.getByRole('button',{name:/Play cycle once/}).click();await p.waitForFunction(()=>document.getElementById('piano-scroll').scrollLeft>300);await p.waitForFunction(()=>document.getElementById('guitar-scroll').scrollLeft>300);await p.keyboard.press('Escape');
   const box=await p.locator('#piano-scroll').boundingBox();await p.mouse.move(box.x+100,box.y+110);await p.mouse.down();await p.mouse.move(box.x+30,box.y+110,{steps:5});await p.mouse.up();assert.equal(await p.locator('.piano-key.sounding').count(),0);
-  await p.locator('#bpm').focus();await p.keyboard.press('Space');assert.match(await p.locator('#loop-label').textContent(),/Prepare/);await p.locator('#workspace').click({position:{x:1,y:1}});await p.screenshot({path:path.join(screenshots,'mobile.png'),fullPage:true});
+  await p.locator('#bpm').focus();await p.keyboard.press('Space');assert.match(await p.locator('#loop-label').textContent(),/Start infinite loop/);await p.locator('#workspace').click({position:{x:1,y:1}});await p.screenshot({path:path.join(screenshots,'mobile.png'),fullPage:true});
  },{viewport:{width:360,height:800},isMobile:true,hasTouch:true});
  await scenario('fret auditions retain the clicked string and fret; touch controls are at least 44px tall',async p=>{
   await p.goto(base);await p.getByRole('button',{name:'String 6, fret 12, E3',exact:true}).click();await p.waitForFunction(()=>document.getElementById('guitar-info').textContent.includes('String 6 · Fret 12'));

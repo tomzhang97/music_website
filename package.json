@@ -12,6 +12,7 @@
     "test:connections": "node tests/disjoint.cjs",
     "test:quiz-groups": "node tests/grouped-quiz.cjs",
     "test:practice-library": "node tests/practice-library.cjs",
+    "test:practice-refinements": "node tests/practice-refinements.cjs",
     "test:background": "node tests/background.cjs && node tests/background-race.cjs && node tests/background-playlist.cjs && node tests/loop-background.cjs && node tests/loop-visibility.cjs"
   },
   "devDependencies": {

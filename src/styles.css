@@ -40,3 +40,6 @@ input[type=range],.master-field input{height:44px}
 .preset-list button[aria-pressed="true"] { color: var(--amber); }
 #quiz-preset-name, #quiz-repeats { box-sizing: border-box; width: 100%; min-height: 44px; margin: 5px 0 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--text); font: inherit; }
 #quiz-listening-status { margin: 8px 0; }
+.background-mode { margin: 16px 0 10px; min-height: 44px; }
+.feedback .feedback-answer { margin: 12px 0 16px; color: var(--text); font-size: clamp(22px, 3vw, 30px); font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; }
+#quiz-title { overflow-wrap: anywhere; }

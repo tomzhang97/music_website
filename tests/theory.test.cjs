@@ -48,6 +48,47 @@ test('choice grids include the target once, even when the pool is smaller than r
  assert.deepEqual(arr(T.choices([2,4,7,12],4,4,()=>0.5)).sort((a,b)=>a-b),[2,4,7,12]);
  assert.equal(T.choices([2],2,8).length,1); assert.equal(T.choices([1,2,3,4,5,6,7,8,9],4,4).length,4);
 });
+test('answer choices stay in ascending interval order for every target', () => {
+ const pool=[12,7,1,4,2,9];
+ for(const target of pool)for(const count of [0,4,6,8]){
+  const options=arr(T.choices(pool,target,count));
+  assert.deepEqual(options,[...options].sort((a,b)=>a-b));
+  assert.equal(options.filter(value=>value===target).length,1);
+ }
+});
+test('shuffled practice rounds cover each sound once and avoid boundary repeats', () => {
+ assert.equal(typeof T.ShuffleBag,'function');
+ for(const rng of [()=>0,()=>0.5,()=>0.999999,Math.random]){
+  const bag=new T.ShuffleBag(rng),pool=[1,2,4,7,12];
+  let previous;
+  for(let round=0;round<100;round++){
+   const draws=pool.map(()=>bag.next(pool));
+   assert.deepEqual([...draws].sort((a,b)=>a-b),pool);
+   assert.notEqual(draws[0],previous);
+   previous=draws.at(-1);
+  }
+ }
+});
+test('shuffled practice rounds adapt immediately to changed pools and handle one choice', () => {
+ assert.equal(typeof T.ShuffleBag,'function');
+ const bag=new T.ShuffleBag(()=>0.5);
+ bag.next([1,2,3]);
+ assert.equal(bag.next([7]),7);
+ assert.equal(bag.next([7]),7);
+ const draws=[bag.next([4,9]),bag.next([9,4])];
+ assert.deepEqual(draws.sort((a,b)=>a-b),[4,9]);
+ assert.equal(bag.next([]),undefined);
+ assert.deepEqual([bag.next(['others','2:up']),bag.next(['others','2:up'])].sort(),['2:up','others']);
+});
+test('random roots remain inside their pool and exclude the previous root uniformly', () => {
+ const roots=[50,52,53,55,57,59,60,62,64];
+ for(const previous of roots){
+  const selected=roots.filter(root=>root!==previous);
+  for(let index=0;index<selected.length;index++){
+   assert.equal(T.nextRoot({mode:'random',repeats:1},1,previous,()=>(index+0.5)/selected.length),selected[index]);
+  }
+ }
+});
 test('quiz scoring records a question once and requires both answers for cell credit', () => {
  const q=new T.QuizSession(); q.begin([2,10]); assert.equal(q.answer(0,2),false); assert.equal(q.total,0);
  assert.equal(q.answer(1,7),true); assert.equal(q.total,1); assert.equal(q.correct,0); assert.equal(q.byInterval[2].correct,1); assert.equal(q.byInterval[10].correct,0);

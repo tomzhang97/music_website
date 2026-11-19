@@ -12,6 +12,13 @@ test('same-root pairs finish every group before the prepared track can loop',()=
 test('prepared tracks bound group count while allowing new roots and complete groups',()=>{
  const p=scope.StudioTrack.plan(i=>({notes:[60+i%12,62+i%12],steps:[2]}),{bpm:200,style:'pure',pause:0.5,gap:0.3,targetSeconds:1000,maxGroups:3});assert.equal(p.groups,3);assert.equal(p.segments.length,3);assert.deepEqual(json(p.events.map(e=>e.midi)),[60,62,61,63,62,64]);
 });
+test('prepared interval rotation completes whole pool rounds before the playlist repeats',()=>{
+ const pool=[1,2,3,4,5,6,7,8,9,10,11,12];
+ const track=scope.StudioTrack.plan(index=>({notes:[60,60+pool[index%pool.length]],steps:[pool[index%pool.length]]}),{bpm:40,gap:6,targetSeconds:60,groupMultiple:pool.length});
+ assert.equal(track.groups%pool.length,0);
+ const counts=pool.map(interval=>track.segments.filter(segment=>segment.cycle.steps[0]===interval).length);
+ assert.ok(counts.every(count=>count===counts[0]&&count>0));
+});
 test('WAV is PCM16 with correct lengths, finite clamped samples and no external encoder',()=>{
  const bytes=scope.StudioTrack.wav({sampleRate:22050,length:5,getChannelData:()=>new Float32Array([0,1,-1,NaN,2])});const v=new DataView(bytes);const str=(o,n)=>String.fromCharCode(...new Uint8Array(bytes,o,n));assert.equal(str(0,4),'RIFF');assert.equal(str(8,4),'WAVE');assert.equal(v.getUint32(4,true),46);assert.equal(v.getUint16(22,true),1);assert.equal(v.getUint32(24,true),22050);assert.equal(v.getUint32(40,true),10);assert.deepEqual([0,1,2,3,4].map(i=>v.getInt16(44+i*2,true)),[0,32767,-32768,0,32767]);
 });
